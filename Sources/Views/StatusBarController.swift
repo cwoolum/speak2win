@@ -37,25 +37,32 @@ class StatusBarController {
         guard let button = statusItem?.button else { return }
 
         let symbolName: String
-        let color: NSColor
 
         switch state {
         case .idle:
             symbolName = "mic"
-            color = .secondaryLabelColor
         case .recording:
             symbolName = "mic.fill"
-            color = .systemRed
         case .transcribing:
             symbolName = "ellipsis.circle"
-            color = .systemBlue
         }
 
         let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Speak2")?
             .withSymbolConfiguration(config) {
+            // Use template mode for automatic light/dark mode adaptation
+            image.isTemplate = true
             button.image = image
-            button.contentTintColor = color
+
+            // Only tint for active states (recording/transcribing)
+            switch state {
+            case .idle:
+                button.contentTintColor = nil  // Let system handle it
+            case .recording:
+                button.contentTintColor = .systemRed
+            case .transcribing:
+                button.contentTintColor = .systemBlue
+            }
         }
     }
 }
