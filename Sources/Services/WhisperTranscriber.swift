@@ -5,6 +5,8 @@ actor WhisperTranscriber {
     private var whisperKit: WhisperKit?
     private var isLoading = false
 
+    private static let modelVariant = "base.en"
+
     var isModelLoaded: Bool {
         whisperKit != nil
     }
@@ -15,15 +17,24 @@ actor WhisperTranscriber {
 
         defer { isLoading = false }
 
-        // WhisperKit uses model names like "base.en", "tiny", etc.
-        // The "openai_whisper-" prefix is not needed
+        // Download model first with progress tracking
+        let modelFolder = try await WhisperKit.download(
+            variant: Self.modelVariant,
+            progressCallback: { progress in
+                Task { @MainActor in
+                    progressHandler(progress.fractionCompleted)
+                }
+            }
+        )
+
+        // Initialize WhisperKit with the downloaded model (no re-download needed)
         let config = WhisperKitConfig(
-            model: "base.en",
+            modelFolder: modelFolder.path,
             verbose: false,
             logLevel: .none,
             prewarm: true,
             load: true,
-            download: true
+            download: false
         )
 
         whisperKit = try await WhisperKit(config)
