@@ -9,9 +9,10 @@ class StatusBarController {
     private let appState = AppState.shared
 
     func setup() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         guard let button = statusItem?.button else { return }
+        button.imagePosition = .imageOnly
         updateIcon(for: .idle)
 
         setupMenu()
@@ -47,7 +48,8 @@ class StatusBarController {
             symbolName = "ellipsis.circle"
         }
 
-        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(textStyle: .body, scale: .medium))
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Speak2")?
             .withSymbolConfiguration(config) {
             // Use template mode for automatic light/dark mode adaptation
