@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import ServiceManagement
 
 @MainActor
 class StatusBarController {
@@ -42,9 +43,33 @@ class StatusBarController {
         hotkeyItem.submenu = hotkeyMenu
         menu.addItem(hotkeyItem)
 
+        // Launch at Login toggle
+        let launchAtLoginItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin(_:)),
+            keyEquivalent: ""
+        )
+        launchAtLoginItem.target = self
+        launchAtLoginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(launchAtLoginItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Speak2", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+                sender.state = .off
+            } else {
+                try SMAppService.mainApp.register()
+                sender.state = .on
+            }
+        } catch {
+            print("Failed to toggle launch at login: \(error)")
+        }
     }
 
     @objc private func hotkeySelected(_ sender: NSMenuItem) {
