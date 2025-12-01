@@ -7,8 +7,10 @@ class StatusBarController {
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
     private let appState = AppState.shared
+    private weak var dictationController: DictationController?
 
-    func setup() {
+    func setup(dictationController: DictationController?) {
+        self.dictationController = dictationController
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         guard let button = statusItem?.button else { return }
@@ -21,8 +23,42 @@ class StatusBarController {
 
     private func setupMenu() {
         let menu = NSMenu()
+
+        // Hotkey submenu
+        let hotkeyMenu = NSMenu()
+        for option in HotkeyOption.allCases {
+            let item = NSMenuItem(
+                title: option.displayName,
+                action: #selector(hotkeySelected(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = option
+            item.state = (option == HotkeyOption.saved) ? .on : .off
+            hotkeyMenu.addItem(item)
+        }
+
+        let hotkeyItem = NSMenuItem(title: "Hotkey", action: nil, keyEquivalent: "")
+        hotkeyItem.submenu = hotkeyMenu
+        menu.addItem(hotkeyItem)
+
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Speak2", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
+    }
+
+    @objc private func hotkeySelected(_ sender: NSMenuItem) {
+        guard let option = sender.representedObject as? HotkeyOption else { return }
+
+        // Update checkmarks
+        if let menu = sender.menu {
+            for item in menu.items {
+                item.state = (item.representedObject as? HotkeyOption == option) ? .on : .off
+            }
+        }
+
+        // Update the hotkey
+        dictationController?.updateHotkey(option)
     }
 
     private func observeState() {

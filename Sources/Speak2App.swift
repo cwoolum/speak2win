@@ -22,9 +22,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide dock icon (menu bar only app)
         NSApp.setActivationPolicy(.accessory)
 
-        // Setup menu bar
+        // Create dictation controller early so menu can reference it
+        dictationController = DictationController()
+
+        // Setup menu bar with reference to dictation controller
         statusBarController = StatusBarController()
-        statusBarController?.setup()
+        statusBarController?.setup(dictationController: dictationController)
 
         // Check if setup is needed
         Task { @MainActor in
@@ -52,7 +55,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Start dictation
         do {
-            dictationController = DictationController()
             try await dictationController?.start()
         } catch {
             appState.lastError = error.localizedDescription

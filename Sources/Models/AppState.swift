@@ -7,6 +7,37 @@ enum RecordingState {
     case transcribing
 }
 
+enum HotkeyOption: String, CaseIterable {
+    case fnKey = "fn"
+    case rightOption = "rightOption"
+    case rightCommand = "rightCommand"
+    case hyperKey = "hyperKey"
+    case ctrlOptionSpace = "ctrlOptionSpace"
+
+    var displayName: String {
+        switch self {
+        case .fnKey: return "Fn (hold)"
+        case .rightOption: return "Right Option (hold)"
+        case .rightCommand: return "Right Command (hold)"
+        case .hyperKey: return "Hyper Key (hold) – Ctrl+Opt+Cmd+Shift"
+        case .ctrlOptionSpace: return "Ctrl+Option+Space (hold)"
+        }
+    }
+
+    static var saved: HotkeyOption {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: "hotkeyOption"),
+               let option = HotkeyOption(rawValue: raw) {
+                return option
+            }
+            return .fnKey
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "hotkeyOption")
+        }
+    }
+}
+
 @MainActor
 class AppState: ObservableObject {
     static let shared = AppState()

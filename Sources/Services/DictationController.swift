@@ -10,6 +10,10 @@ class DictationController {
 
     private var currentRecordingURL: URL?
 
+    func updateHotkey(_ option: HotkeyOption) {
+        hotkeyManager.updateHotkey(option)
+    }
+
     func start() async throws {
         // Load model if not already loaded
         if !appState.isModelLoaded {
