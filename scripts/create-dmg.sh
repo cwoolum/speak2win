@@ -23,6 +23,10 @@ mkdir -p "$DMG_TEMP"
 # Copy app to temp directory
 cp -R "$APP_BUNDLE" "$DMG_TEMP/"
 
+# Copy uninstall script
+cp "scripts/uninstall.sh" "$DMG_TEMP/Uninstall Speak2.command"
+chmod +x "$DMG_TEMP/Uninstall Speak2.command"
+
 # Create symlink to Applications
 ln -s /Applications "$DMG_TEMP/Applications"
 
