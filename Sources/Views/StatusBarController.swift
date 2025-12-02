@@ -15,6 +15,7 @@ class StatusBarController {
     private weak var dictationController: DictationController?
     private var spinnerTimer: Timer?
     private var spinnerRotation: CGFloat = 0
+    private var isSpinnerActive = false
 
     func setup(dictationController: DictationController?) {
         self.dictationController = dictationController
@@ -263,28 +264,31 @@ class StatusBarController {
 
     private func startSpinner() {
         guard spinnerTimer == nil else { return }
+        isSpinnerActive = true
         spinnerRotation = 0
         updateSpinnerIcon()
 
         spinnerTimer = Timer.scheduledTimer(withTimeInterval: 0.16, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.spinnerRotation += 30
-                if self?.spinnerRotation ?? 0 >= 360 {
-                    self?.spinnerRotation = 0
+                guard let self = self, self.isSpinnerActive else { return }
+                self.spinnerRotation += 30
+                if self.spinnerRotation >= 360 {
+                    self.spinnerRotation = 0
                 }
-                self?.updateSpinnerIcon()
+                self.updateSpinnerIcon()
             }
         }
     }
 
     private func stopSpinner() {
+        isSpinnerActive = false
         spinnerTimer?.invalidate()
         spinnerTimer = nil
         spinnerRotation = 0
     }
 
     private func updateSpinnerIcon() {
-        guard let button = statusItem?.button else { return }
+        guard isSpinnerActive, let button = statusItem?.button else { return }
 
         let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
         let colorConfig = config.applying(.init(paletteColors: [.systemYellow]))
