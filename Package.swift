@@ -7,12 +7,13 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0")
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.7.9")
     ],
     targets: [
         .executableTarget(
             name: "Speak2",
-            dependencies: ["WhisperKit"],
+            dependencies: ["WhisperKit", "FluidAudio"],
             path: "Sources",
             resources: [
                 .process("../Resources")

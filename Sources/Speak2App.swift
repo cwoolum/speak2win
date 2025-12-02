@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import Combine
 
 @main
 struct Speak2App: App {
@@ -17,6 +18,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var setupWindowController: SetupWindowController?
     private var dictationController: DictationController?
     private let appState = AppState.shared
+    private var cancellables = Set<AnyCancellable>()
+    private var hasStartedDictation = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (menu bar only app)
@@ -29,10 +32,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController = StatusBarController()
         statusBarController?.setup(dictationController: dictationController)
 
+        // Listen for requests to open setup window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenSetupWindow),
+            name: .openSetupWindow,
+            object: nil
+        )
+
+        // Observe setup completion to start dictation
+        observeSetupCompletion()
+
         // Check if setup is needed
         Task { @MainActor in
             await checkAndStartDictation()
         }
+    }
+
+    @objc private func handleOpenSetupWindow() {
+        Task { @MainActor in
+            showSetupWindow()
+        }
+    }
+
+    @MainActor
+    private func observeSetupCompletion() {
+        // When setup becomes complete, start dictation if not already started
+        appState.$isModelLoaded
+            .combineLatest(appState.$hasAccessibilityPermission, appState.$hasMicrophonePermission)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isModelLoaded, hasAccessibility, hasMicrophone in
+                guard let self = self else { return }
+                if isModelLoaded && hasAccessibility && hasMicrophone && !self.hasStartedDictation {
+                    self.hasStartedDictation = true
+                    Task { @MainActor in
+                        await self.startDictation()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     @MainActor
@@ -47,24 +85,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             appState.hasMicrophonePermission = false
         }
 
-        // Show setup if needed
-        if !appState.hasAccessibilityPermission || !appState.hasMicrophonePermission {
+        // Show setup if needed (no model downloaded or missing permissions)
+        let hasDownloadedModel = !appState.downloadedModels.isEmpty
+        if !appState.hasAccessibilityPermission || !appState.hasMicrophonePermission || !hasDownloadedModel {
             showSetupWindow()
             return
         }
 
         // Start dictation
+        await startDictation()
+    }
+
+    @MainActor
+    private func startDictation() async {
         do {
             try await dictationController?.start()
+            hasStartedDictation = true
         } catch {
             appState.lastError = error.localizedDescription
             showSetupWindow()
         }
     }
 
+    @MainActor
     private func showSetupWindow() {
-        setupWindowController = SetupWindowController()
-        setupWindowController?.showSetupWindow()
+        if setupWindowController == nil {
+            setupWindowController = SetupWindowController()
+        }
+        setupWindowController?.showSetupWindow(modelManager: dictationController?.modelManager)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

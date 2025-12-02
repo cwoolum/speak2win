@@ -3,14 +3,18 @@ import SwiftUI
 
 class SetupWindowController {
     private var window: NSWindow?
+    private var modelManager: ModelManager?
 
-    func showSetupWindow() {
+    func showSetupWindow(modelManager: ModelManager?) {
+        self.modelManager = modelManager
+
         if window != nil {
             window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let setupView = SetupView()
+        let setupView = SetupView(modelManager: modelManager)
         let hostingController = NSHostingController(rootView: setupView)
 
         let window = NSWindow(contentViewController: hostingController)

@@ -1,7 +1,7 @@
 import Foundation
 import WhisperKit
 
-actor WhisperTranscriber {
+actor WhisperTranscriber: TranscriptionEngine {
     private var whisperKit: WhisperKit?
     private var isLoading = false
 
@@ -40,9 +40,13 @@ actor WhisperTranscriber {
         whisperKit = try await WhisperKit(config)
     }
 
+    func unloadModel() async {
+        whisperKit = nil
+    }
+
     func transcribe(audioURL: URL) async throws -> String {
         guard let whisperKit = whisperKit else {
-            throw TranscriberError.modelNotLoaded
+            throw TranscriptionEngineError.modelNotLoaded
         }
 
         let results = try await whisperKit.transcribe(audioPath: audioURL.path)
@@ -54,9 +58,4 @@ actor WhisperTranscriber {
 
         return transcription
     }
-}
-
-enum TranscriberError: Error {
-    case modelNotLoaded
-    case transcriptionFailed
 }

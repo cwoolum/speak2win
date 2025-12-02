@@ -3,7 +3,8 @@ import AVFoundation
 
 struct SetupView: View {
     @ObservedObject var appState = AppState.shared
-    @State private var isDownloadingModel = false
+    @State private var downloadingModel: TranscriptionModel? = nil
+    var modelManager: ModelManager?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -11,7 +12,7 @@ struct SetupView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("Grant permissions and download the speech model to get started.")
+            Text("Grant permissions and download a speech model to get started.")
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -30,12 +31,25 @@ struct SetupView: View {
                     action: requestMicrophone
                 )
 
-                ModelDownloadRow(
-                    isDownloaded: appState.isModelLoaded,
-                    isDownloading: isDownloadingModel,
-                    progress: appState.modelDownloadProgress,
-                    action: downloadModel
-                )
+                Divider()
+                    .padding(.vertical, 4)
+
+                Text("Speech Recognition Model")
+                    .fontWeight(.medium)
+
+                ForEach(TranscriptionModel.allCases, id: \.self) { model in
+                    ModelSelectionRow(
+                        model: model,
+                        isSelected: appState.selectedModel == model,
+                        isDownloaded: appState.downloadedModels.contains(model),
+                        isDownloading: downloadingModel == model,
+                        isCurrentlyLoaded: appState.currentlyLoadedModel == model,
+                        progress: downloadingModel == model ? appState.modelDownloadProgress : 0,
+                        onSelect: { selectModel(model) },
+                        onDownload: { downloadModel(model) },
+                        onDelete: { deleteModel(model) }
+                    )
+                }
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -53,9 +67,10 @@ struct SetupView: View {
             }
         }
         .padding(32)
-        .frame(width: 450)
+        .frame(width: 480)
         .onAppear {
             checkPermissions()
+            appState.refreshDownloadedModels()
         }
     }
 
@@ -89,25 +104,48 @@ struct SetupView: View {
         }
     }
 
-    private func downloadModel() {
-        isDownloadingModel = true
+    private func selectModel(_ model: TranscriptionModel) {
+        appState.selectedModel = model
+        TranscriptionModel.saved = model
+
+        // If already downloaded, load it
+        if appState.downloadedModels.contains(model) {
+            downloadModel(model)
+        }
+    }
+
+    private func downloadModel(_ model: TranscriptionModel) {
+        guard let modelManager = modelManager else { return }
+        downloadingModel = model
 
         Task {
             do {
-                let transcriber = WhisperTranscriber()
-                try await transcriber.loadModel { progress in
+                try await modelManager.loadModel(model) { progress in
                     Task { @MainActor in
                         appState.modelDownloadProgress = progress
                     }
                 }
                 await MainActor.run {
-                    appState.isModelLoaded = true
-                    isDownloadingModel = false
+                    downloadingModel = nil
                 }
             } catch {
                 await MainActor.run {
                     appState.lastError = error.localizedDescription
-                    isDownloadingModel = false
+                    downloadingModel = nil
+                }
+            }
+        }
+    }
+
+    private func deleteModel(_ model: TranscriptionModel) {
+        guard let modelManager = modelManager else { return }
+
+        Task {
+            do {
+                try await modelManager.deleteModel(model)
+            } catch {
+                await MainActor.run {
+                    appState.lastError = error.localizedDescription
                 }
             }
         }
@@ -146,36 +184,84 @@ struct PermissionRow: View {
     }
 }
 
-struct ModelDownloadRow: View {
+struct ModelSelectionRow: View {
+    let model: TranscriptionModel
+    let isSelected: Bool
     let isDownloaded: Bool
     let isDownloading: Bool
+    let isCurrentlyLoaded: Bool
     let progress: Double
-    let action: () -> Void
+    let onSelect: () -> Void
+    let onDownload: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            // Radio button
+            Image(systemName: isSelected ? "circle.inset.filled" : "circle")
+                .foregroundColor(isSelected ? .accentColor : .secondary)
+                .font(.title3)
+                .onTapGesture {
+                    if isDownloaded {
+                        onSelect()
+                    }
+                }
+
             VStack(alignment: .leading, spacing: 4) {
-                Text("Speech Model")
-                    .fontWeight(.medium)
-                Text("~140MB download, runs locally")
+                HStack(spacing: 6) {
+                    Text(model.displayName)
+                        .fontWeight(.medium)
+                    if isCurrentlyLoaded {
+                        Text("Active")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.2))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
+                }
+                Text(model.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
             Spacer()
 
-            if isDownloaded {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title2)
-            } else if isDownloading {
+            if isDownloading {
                 ProgressView(value: progress)
-                    .frame(width: 100)
+                    .frame(width: 80)
+            } else if isDownloaded {
+                HStack(spacing: 8) {
+                    Text(model.estimatedSize)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Delete model")
+                }
             } else {
                 Button("Download") {
-                    action()
+                    onDownload()
                 }
                 .buttonStyle(.bordered)
+
+                Text(model.estimatedSize)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isDownloaded && !isDownloading {
+                onSelect()
+            } else if !isDownloaded && !isDownloading {
+                onDownload()
             }
         }
     }

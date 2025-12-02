@@ -4,9 +4,10 @@ import Foundation
 class DictationController {
     private let hotkeyManager = HotkeyManager()
     private let audioRecorder = AudioRecorder()
-    private let transcriber = WhisperTranscriber()
     private let textInjector = TextInjector()
     private let appState = AppState.shared
+
+    let modelManager = ModelManager()
 
     private var currentRecordingURL: URL?
 
@@ -14,15 +15,20 @@ class DictationController {
         hotkeyManager.updateHotkey(option)
     }
 
+    /// Load the selected model (or specified model)
+    func loadModel(_ model: TranscriptionModel? = nil) async throws {
+        let targetModel = model ?? appState.selectedModel
+        try await modelManager.loadModel(targetModel) { [weak self] progress in
+            Task { @MainActor in
+                self?.appState.modelDownloadProgress = progress
+            }
+        }
+    }
+
     func start() async throws {
         // Load model if not already loaded
         if !appState.isModelLoaded {
-            try await transcriber.loadModel { [weak self] progress in
-                Task { @MainActor in
-                    self?.appState.modelDownloadProgress = progress
-                }
-            }
-            appState.isModelLoaded = true
+            try await loadModel()
         }
 
         // Start hotkey monitoring
@@ -62,7 +68,7 @@ class DictationController {
 
         Task {
             do {
-                let text = try await transcriber.transcribe(audioURL: audioURL)
+                let text = try await modelManager.transcribe(audioURL: audioURL)
 
                 await MainActor.run {
                     if !text.isEmpty {
