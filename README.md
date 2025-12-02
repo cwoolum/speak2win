@@ -2,7 +2,18 @@
 
 Local voice dictation for macOS. Hold the fn key (configurable) to speak, release to transcribe. Works with any application.
 
-100% on-device using [WhisperKit](https://github.com/argmaxinc/WhisperKit) - no cloud services, no data leaves your Mac.
+100% on-device using [WhisperKit](https://github.com/argmaxinc/WhisperKit) or [Parakeet](https://github.com/FluidInference/FluidAudio) - no cloud services, no data leaves your Mac.
+
+## Speech Recognition Models
+
+Speak2 supports two speech recognition models:
+
+| Model | Size | Languages | Best For |
+|-------|------|-----------|----------|
+| **Whisper (base.en)** | ~140 MB | English only | Fast, accurate English transcription |
+| **Parakeet v3** | ~600 MB | 25 languages | Multilingual users |
+
+You can download both and switch between them from the menu bar. Only one model is loaded at a time to conserve memory.
 
 ## Requirements
 
@@ -73,11 +84,11 @@ Click "Grant" next to Microphone. And click "Allow" on the permission window tha
 
 ### 3. Download Speech Model
 
-Click "Download" to download the WhisperKit base.en model (~140MB).
+Choose a model and click "Download":
+- **Whisper (base.en)** - ~140MB, English only, faster
+- **Parakeet v3** - ~600MB, 25 languages, best for multilingual users
 
-**Note:** The progress may appear stuck update during download. The download takes 1-3 minutes depending on your connection. Just wait - it will complete and show a checkmark when done.
-
-<img width="460" height="441" alt="image" src="https://github.com/user-attachments/assets/c6b5a633-b178-403d-8bb1-5848634f5773" />
+**Note:** Parakeet takes longer to load initially (~20-30 seconds) as it compiles the neural engine model. Subsequent loads are faster. The menu bar icon will show a spinning indicator while loading.
 
 Once all three items show checkmarks, the setup window will indicate completion and you can close it.
 
@@ -93,11 +104,20 @@ The transcribed text is automatically pasted into whatever application text fiel
 
 Speak2 runs as a menu bar app (no dock icon). Look for the microphone icon:
 
-- **White/Black (depending on MacOS theme)** - Idle, ready to record
+- **White/Black (depending on macOS theme)** - Idle, ready to record
+- **Yellow spinning arrows** - Loading model
 - **Red mic** - Recording in progress
-- **Blue spinner** - Transcribing
+- **Cyan spinner** - Transcribing
 
-#### Choosing hotkey 
+The menu shows a status line at the top indicating the current state (e.g., "Ready – Whisper (base.en)").
+
+#### Switching Models
+Click the menu bar icon and select **Model** to switch between downloaded models. Models not yet downloaded show a ↓ indicator - clicking them opens the setup window to download.
+
+#### Manage Models
+Click **Manage Models...** to open the setup window where you can download additional models or delete existing ones to free up disk space.
+
+#### Choosing Hotkey
 You can choose from several hotkey options. Sometimes external keyboards don't send the function key reliably. In that case, you can choose one of the other options from the menu.
 
 #### Launch at Login
@@ -110,12 +130,14 @@ Click the menu bar icon and click "Quit Speak2".
 
 ## How It Works
 
-- **HotkeyManager** - Detects hot key key press/release using CGEvent tap
-- **AudioRecorder** - Captures microphone audio at 16kHz mono (optimal for Whisper)
+- **HotkeyManager** - Detects hotkey press/release using CGEvent tap
+- **AudioRecorder** - Captures microphone audio at 16kHz mono PCM
+- **ModelManager** - Handles model downloading, loading, and switching
 - **WhisperTranscriber** - Runs WhisperKit on-device for speech-to-text
+- **ParakeetTranscriber** - Runs FluidAudio/Parakeet on-device for speech-to-text
 - **TextInjector** - Copies transcription to clipboard and simulates Cmd+V to paste
 
-The Whisper model stays loaded in memory (~300MB RAM) for instant transcription.
+The selected model stays loaded in memory (~300-600MB RAM depending on model) for instant transcription.
 
 ## Tips
 
@@ -125,7 +147,7 @@ The Whisper model stays loaded in memory (~300MB RAM) for instant transcription.
 
 ## Known Limitations
 
-- Progress bar doesn't update during model download (just wait ~2-3 minutes)
+- Parakeet model takes ~20-30 seconds to load on first use (compiling neural engine model)
 - Uses clipboard for text injection (temporarily overwrites clipboard contents)
 - fn key detection requires Accessibility permission
 - Only tested on Apple Silicon Macs
@@ -134,6 +156,7 @@ The Whisper model stays loaded in memory (~300MB RAM) for instant transcription.
 
 - Swift + SwiftUI
 - [WhisperKit](https://github.com/argmaxinc/WhisperKit) - Apple's optimized Whisper implementation
+- [FluidAudio](https://github.com/FluidInference/FluidAudio) - Parakeet speech recognition for Apple Silicon
 - AVFoundation for audio capture
 - CGEvent for global hotkey detection
 
