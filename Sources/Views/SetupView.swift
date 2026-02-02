@@ -34,11 +34,6 @@ struct SetupView: View {
                 Divider()
                     .padding(.vertical, 4)
 
-                ModelStorageLocationRow(appState: appState)
-
-                Divider()
-                    .padding(.vertical, 4)
-
                 Text("Speech Recognition Model")
                     .fontWeight(.medium)
 
@@ -55,6 +50,11 @@ struct SetupView: View {
                         onDelete: { deleteModel(model) }
                     )
                 }
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                ModelStorageLocationRow(appState: appState)
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -281,6 +281,10 @@ struct ModelStorageLocationRow: View {
     @ObservedObject var appState: AppState
     @State private var storageLocation: URL = AppState.modelStorageLocation
     
+    private var isDefaultLocation: Bool {
+        storageLocation.path == AppState.defaultModelStorageLocation.path
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -294,6 +298,13 @@ struct ModelStorageLocationRow: View {
                 
                 Spacer()
                 
+                if !isDefaultLocation {
+                    Button("Use Default") {
+                        useDefault()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
                 Button("Choose Folder...") {
                     chooseFolder()
                 }
@@ -306,6 +317,15 @@ struct ModelStorageLocationRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
+        .onAppear {
+            storageLocation = AppState.modelStorageLocation
+        }
+    }
+    
+    private func useDefault() {
+        storageLocation = AppState.defaultModelStorageLocation
+        AppState.modelStorageLocation = AppState.defaultModelStorageLocation
+        appState.refreshDownloadedModels()
     }
     
     private func chooseFolder() {

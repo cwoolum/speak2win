@@ -180,15 +180,18 @@ class AppState: ObservableObject {
     @Published var downloadedModels: Set<TranscriptionModel> = []
     
     // Model storage location preference
+    static var defaultModelStorageLocation: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Speak2")
+            .appendingPathComponent("Models")
+    }
+
     static var modelStorageLocation: URL {
         get {
             if let path = UserDefaults.standard.string(forKey: "modelStorageLocation") {
                 return URL(fileURLWithPath: path)
             }
-            // Default: ~/Library/Application Support/Speak2/Models
-            return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("Speak2")
-                .appendingPathComponent("Models")
+            return defaultModelStorageLocation
         }
         set {
             UserDefaults.standard.set(newValue.path, forKey: "modelStorageLocation")
