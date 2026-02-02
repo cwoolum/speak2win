@@ -34,6 +34,11 @@ struct SetupView: View {
                 Divider()
                     .padding(.vertical, 4)
 
+                ModelStorageLocationRow(appState: appState)
+
+                Divider()
+                    .padding(.vertical, 4)
+
                 Text("Speech Recognition Model")
                     .fontWeight(.medium)
 
@@ -267,6 +272,57 @@ struct ModelSelectionRow: View {
                 onSelect()
             } else if !isDownloaded && !isDownloading {
                 onDownload()
+            }
+        }
+    }
+}
+
+struct ModelStorageLocationRow: View {
+    @ObservedObject var appState: AppState
+    @State private var storageLocation: URL = AppState.modelStorageLocation
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Model Storage Location")
+                        .fontWeight(.medium)
+                    Text("Where downloaded models are stored")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Button("Choose Folder...") {
+                    chooseFolder()
+                }
+                .buttonStyle(.bordered)
+            }
+            
+            Text(storageLocation.path)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+    }
+    
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a folder to store downloaded models"
+        panel.directoryURL = storageLocation
+        
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                storageLocation = url
+                AppState.modelStorageLocation = url
+                // Refresh downloaded models status since paths are now different
+                appState.refreshDownloadedModels()
             }
         }
     }
