@@ -11,7 +11,7 @@ class ModelManager: ObservableObject {
     /// The currently active transcription engine (if any model is loaded)
     var currentEngine: (any TranscriptionEngine)? {
         switch appState.currentlyLoadedModel {
-        case .whisperBaseEn:
+        case .whisperTinyEn, .whisperBaseEn, .whisperSmallEn, .whisperLargeV3, .whisperLargeV3Turbo:
             return whisperTranscriber
         case .parakeetV3:
             return parakeetTranscriber
@@ -38,14 +38,16 @@ class ModelManager: ObservableObject {
         appState.recordingState = .loadingModel
 
         switch model {
-        case .whisperBaseEn:
+        case .whisperTinyEn, .whisperBaseEn, .whisperSmallEn, .whisperLargeV3, .whisperLargeV3Turbo:
+            let variant = model.whisperVariant!
             let transcriber = WhisperTranscriber()
-            try await transcriber.loadModel { progress in
+            let modelFolder = try await transcriber.loadModel(variant: variant) { progress in
                 Task { @MainActor in
                     self.appState.modelDownloadProgress = progress
                     progressHandler(progress)
                 }
             }
+            TranscriptionModel.setStoredWhisperPath(modelFolder, for: model)
             whisperTranscriber = transcriber
 
         case .parakeetV3:
@@ -91,6 +93,11 @@ class ModelManager: ObservableObject {
         let path = model.storagePath
         if FileManager.default.fileExists(atPath: path.path) {
             try FileManager.default.removeItem(at: path)
+        }
+
+        // Clear persisted Whisper path so isDownloaded and storagePath reflect deletion
+        if model.whisperVariant != nil {
+            TranscriptionModel.setStoredWhisperPath(nil, for: model)
         }
 
         appState.refreshDownloadedModels()

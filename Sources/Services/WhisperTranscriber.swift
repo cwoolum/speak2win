@@ -5,21 +5,23 @@ actor WhisperTranscriber: TranscriptionEngine {
     private var whisperKit: WhisperKit?
     private var isLoading = false
 
-    private static let modelVariant = "base.en"
-
     var isModelLoaded: Bool {
         whisperKit != nil
     }
 
-    func loadModel(progressHandler: @escaping (Double) -> Void) async throws {
-        guard !isLoading && whisperKit == nil else { return }
+    /// Load a Whisper model by variant string (e.g. "base.en", "small.en", "large-v3").
+    /// Returns the model folder URL so the caller can persist it for isDownloaded/delete.
+    func loadModel(variant: String, progressHandler: @escaping (Double) -> Void) async throws -> URL {
+        guard !isLoading && whisperKit == nil else {
+            throw TranscriptionEngineError.modelNotLoaded
+        }
         isLoading = true
 
         defer { isLoading = false }
 
         // Download model first with progress tracking
         let modelFolder = try await WhisperKit.download(
-            variant: Self.modelVariant,
+            variant: variant,
             progressCallback: { progress in
                 Task { @MainActor in
                     progressHandler(progress.fractionCompleted)
@@ -38,6 +40,14 @@ actor WhisperTranscriber: TranscriptionEngine {
         )
 
         whisperKit = try await WhisperKit(config)
+        return modelFolder
+    }
+
+    // MARK: - TranscriptionEngine (protocol)
+
+    /// Protocol conformance; uses default variant. Prefer loadModel(variant:progressHandler:) for multi-variant use.
+    func loadModel(progressHandler: @escaping (Double) -> Void) async throws {
+        _ = try await loadModel(variant: "base.en", progressHandler: progressHandler)
     }
 
     func unloadModel() async {

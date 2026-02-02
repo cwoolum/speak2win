@@ -9,40 +9,104 @@ enum RecordingState {
 }
 
 enum TranscriptionModel: String, CaseIterable {
+    case whisperTinyEn = "whisper-tiny.en"
     case whisperBaseEn = "whisper-base.en"
+    case whisperSmallEn = "whisper-small.en"
+    case whisperLargeV3 = "whisper-large-v3"
+    case whisperLargeV3Turbo = "whisper-large-v3-turbo"
     case parakeetV3 = "parakeet-v3"
 
     var displayName: String {
         switch self {
+        case .whisperTinyEn: return "Whisper (tiny.en)"
         case .whisperBaseEn: return "Whisper (base.en)"
+        case .whisperSmallEn: return "Whisper (small.en)"
+        case .whisperLargeV3: return "Whisper (large-v3)"
+        case .whisperLargeV3Turbo: return "Whisper (large-v3 turbo)"
         case .parakeetV3: return "Parakeet v3"
         }
     }
 
     var description: String {
         switch self {
-        case .whisperBaseEn: return "English only – fast and accurate"
+        case .whisperTinyEn: return "English only – smallest, ~75 MB"
+        case .whisperBaseEn: return "English only – fast, ~140 MB"
+        case .whisperSmallEn: return "English only – better accuracy, ~460 MB"
+        case .whisperLargeV3: return "English + multilingual – best accuracy, ~3 GB"
+        case .whisperLargeV3Turbo: return "English + multilingual – faster large model, ~954 MB"
         case .parakeetV3: return "25 languages – best for multilingual users"
         }
     }
 
     var estimatedSize: String {
         switch self {
+        case .whisperTinyEn: return "~75 MB"
         case .whisperBaseEn: return "~140 MB"
+        case .whisperSmallEn: return "~460 MB"
+        case .whisperLargeV3: return "~3 GB"
+        case .whisperLargeV3Turbo: return "~954 MB"
         case .parakeetV3: return "~600 MB"
         }
     }
 
-    /// Path where this model's files are stored
+    /// WhisperKit variant string for download/load (nil for non-Whisper models).
+    var whisperVariant: String? {
+        switch self {
+        case .whisperTinyEn: return "openai_whisper-tiny.en"
+        case .whisperBaseEn: return "base.en"
+        case .whisperSmallEn: return "small.en"
+        case .whisperLargeV3: return "large-v3"
+        case .whisperLargeV3Turbo: return "openai_whisper-large-v3_turbo_954MB"
+        case .parakeetV3: return nil
+        }
+    }
+
+    /// Path where this model's files are stored.
+    /// Whisper: uses persisted path from WhisperKit.download if set, else default under Application Support.
+    /// Parakeet: fixed FluidAudio path.
     var storagePath: URL {
         switch self {
-        case .whisperBaseEn:
-            return FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Documents/huggingface")
+        case .whisperTinyEn, .whisperBaseEn, .whisperSmallEn, .whisperLargeV3, .whisperLargeV3Turbo:
+            if let stored = Self.getStoredWhisperPath(for: self) {
+                return stored
+            }
+            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Speak2")
+                .appendingPathComponent("Whisper")
+            return base.appendingPathComponent(whisperVariant ?? "unknown")
         case .parakeetV3:
             return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
                 .appendingPathComponent("FluidAudio")
         }
+    }
+
+    /// Persist or clear the Whisper model folder path (set after download, cleared on delete).
+    static func setStoredWhisperPath(_ url: URL?, for model: TranscriptionModel) {
+        guard model.whisperVariant != nil else { return }
+        let key = "whisperModelPath_\(model.rawValue)"
+        if let url = url {
+            UserDefaults.standard.set(url.path, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
+    static func getStoredWhisperPath(for model: TranscriptionModel) -> URL? {
+        guard model.whisperVariant != nil else { return nil }
+        if let path = UserDefaults.standard.string(forKey: "whisperModelPath_\(model.rawValue)") {
+            return URL(fileURLWithPath: path)
+        }
+        // Migration: base.en was previously stored at Documents/huggingface; persist it so isDownloaded stays true
+        if case .whisperBaseEn = model {
+            let legacy = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/huggingface")
+            if FileManager.default.fileExists(atPath: legacy.path),
+               let contents = try? FileManager.default.contentsOfDirectory(atPath: legacy.path),
+               !contents.isEmpty {
+                setStoredWhisperPath(legacy, for: model)
+                return legacy
+            }
+        }
+        return nil
     }
 
     /// Check if this model is downloaded by looking for files on disk
