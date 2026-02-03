@@ -115,8 +115,12 @@ class AppState: ObservableObject {
     @Published var currentlyLoadedModel: TranscriptionModel? = nil
     @Published var downloadedModels: Set<TranscriptionModel> = []
 
+    // Personal dictionary
+    let dictionaryState = DictionaryState()
+
     private init() {
         refreshDownloadedModels()
+        dictionaryState.load()
     }
 
     var isSetupComplete: Bool {

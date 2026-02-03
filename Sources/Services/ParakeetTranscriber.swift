@@ -42,10 +42,13 @@ actor ParakeetTranscriber: TranscriptionEngine {
         asrManager = nil
     }
 
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, dictionaryHint: String? = nil) async throws -> String {
         guard let asrManager = asrManager else {
             throw TranscriptionEngineError.modelNotLoaded
         }
+
+        // FluidAudio does not support vocabulary biasing
+        // Dictionary processing will be handled post-transcription by DictionaryProcessor
 
         // FluidAudio expects 16kHz mono PCM samples
         let samples = try AudioConverter().resampleAudioFile(path: audioURL.path)

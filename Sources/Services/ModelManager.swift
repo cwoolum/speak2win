@@ -97,10 +97,14 @@ class ModelManager: ObservableObject {
     }
 
     /// Transcribe audio using the currently loaded model
-    func transcribe(audioURL: URL) async throws -> String {
+    /// - Parameters:
+    ///   - audioURL: Path to the audio file
+    ///   - dictionaryHint: Optional comma-separated list of words to prioritize
+    /// - Returns: Transcribed text
+    func transcribe(audioURL: URL, dictionaryHint: String? = nil) async throws -> String {
         guard let engine = currentEngine else {
             throw TranscriptionEngineError.modelNotLoaded
         }
-        return try await engine.transcribe(audioURL: audioURL)
+        return try await engine.transcribe(audioURL: audioURL, dictionaryHint: dictionaryHint)
     }
 }

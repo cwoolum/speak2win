@@ -14,9 +14,11 @@ protocol TranscriptionEngine: Actor {
     func unloadModel() async
 
     /// Transcribe audio from the given file URL
-    /// - Parameter audioURL: Path to 16kHz mono PCM audio file
+    /// - Parameters:
+    ///   - audioURL: Path to 16kHz mono PCM audio file
+    ///   - dictionaryHint: Optional comma-separated list of words to prioritize during transcription
     /// - Returns: Transcribed text
-    func transcribe(audioURL: URL) async throws -> String
+    func transcribe(audioURL: URL, dictionaryHint: String?) async throws -> String
 }
 
 enum TranscriptionEngineError: Error, LocalizedError {

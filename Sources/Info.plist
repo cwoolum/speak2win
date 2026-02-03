@@ -20,5 +20,23 @@
     <string>Speak2 needs microphone access to transcribe your voice into text.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict>
+                <key>default</key>
+                <string>Add to Speak2 Dictionary</string>
+            </dict>
+            <key>NSMessage</key>
+            <string>addToDictionary</string>
+            <key>NSPortName</key>
+            <string>Speak2</string>
+            <key>NSSendTypes</key>
+            <array>
+                <string>public.plain-text</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

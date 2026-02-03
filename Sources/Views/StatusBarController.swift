@@ -101,6 +101,33 @@ class StatusBarController {
         hotkeyItem.submenu = hotkeyMenu
         menu.addItem(hotkeyItem)
 
+        // Dictionary submenu
+        let dictionaryMenu = NSMenu()
+
+        // Quick Add
+        let quickAddItem = NSMenuItem(
+            title: "Add Word...",
+            action: #selector(showQuickAdd),
+            keyEquivalent: ""
+        )
+        quickAddItem.target = self
+        dictionaryMenu.addItem(quickAddItem)
+
+        // Open Dictionary Window
+        let manageDictItem = NSMenuItem(
+            title: "Manage Dictionary...",
+            action: #selector(openDictionary),
+            keyEquivalent: ""
+        )
+        manageDictItem.target = self
+        dictionaryMenu.addItem(manageDictItem)
+
+        let dictionaryItem = NSMenuItem(title: "Dictionary", action: nil, keyEquivalent: "")
+        dictionaryItem.submenu = dictionaryMenu
+        menu.addItem(dictionaryItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         // Launch at Login toggle
         let launchAtLoginItem = NSMenuItem(
             title: "Launch at Login",
@@ -178,6 +205,14 @@ class StatusBarController {
 
         // Update the hotkey
         dictationController?.updateHotkey(option)
+    }
+
+    @objc private func showQuickAdd() {
+        NotificationCenter.default.post(name: .showQuickAddWord, object: nil)
+    }
+
+    @objc private func openDictionary() {
+        NotificationCenter.default.post(name: .openDictionaryWindow, object: nil)
     }
 
     private func observeState() {

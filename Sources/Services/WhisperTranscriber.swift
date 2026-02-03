@@ -44,12 +44,30 @@ actor WhisperTranscriber: TranscriptionEngine {
         whisperKit = nil
     }
 
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, dictionaryHint: String? = nil) async throws -> String {
         guard let whisperKit = whisperKit else {
             throw TranscriptionEngineError.modelNotLoaded
         }
 
-        let results = try await whisperKit.transcribe(audioPath: audioURL.path)
+        var results: [TranscriptionResult]
+
+        // Try with vocabulary hint first if provided
+        if let hint = dictionaryHint, !hint.isEmpty {
+            var decodeOptions = DecodingOptions()
+            decodeOptions.promptTokens = whisperKit.tokenizer?.encode(text: hint)
+
+            results = try await whisperKit.transcribe(
+                audioPath: audioURL.path,
+                decodeOptions: decodeOptions
+            )
+
+            // Fallback: if promptTokens caused empty results, retry without
+            if results.isEmpty || results.allSatisfy({ $0.text.trimmingCharacters(in: .whitespaces).isEmpty }) {
+                results = try await whisperKit.transcribe(audioPath: audioURL.path)
+            }
+        } else {
+            results = try await whisperKit.transcribe(audioPath: audioURL.path)
+        }
 
         let transcription = results
             .compactMap { $0.text }

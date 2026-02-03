@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import AVFoundation
 import Combine
 
@@ -16,6 +17,9 @@ struct Speak2App: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var setupWindowController: SetupWindowController?
+    private var dictionaryWindowController: DictionaryWindowController?
+    private var quickAddWindow: NSWindow?
+    private var addToDictionaryWindow: NSWindow?
     private var dictationController: DictationController?
     private let appState = AppState.shared
     private var cancellables = Set<AnyCancellable>()
@@ -24,6 +28,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (menu bar only app)
         NSApp.setActivationPolicy(.accessory)
+
+        // Register as service provider for right-click "Add to Dictionary"
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
 
         // Create dictation controller early so menu can reference it
         dictationController = DictationController()
@@ -40,6 +48,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Listen for requests to open dictionary window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenDictionaryWindow),
+            name: .openDictionaryWindow,
+            object: nil
+        )
+
+        // Listen for requests to show quick add
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleShowQuickAdd),
+            name: .showQuickAddWord,
+            object: nil
+        )
+
         // Observe setup completion to start dictation
         observeSetupCompletion()
 
@@ -52,6 +76,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleOpenSetupWindow() {
         Task { @MainActor in
             showSetupWindow()
+        }
+    }
+
+    @objc private func handleOpenDictionaryWindow() {
+        Task { @MainActor in
+            showDictionaryWindow()
+        }
+    }
+
+    @objc private func handleShowQuickAdd() {
+        Task { @MainActor in
+            showQuickAddWindow()
         }
     }
 
@@ -115,7 +151,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupWindowController?.showSetupWindow(modelManager: dictationController?.modelManager)
     }
 
+    @MainActor
+    private func showDictionaryWindow() {
+        if dictionaryWindowController == nil {
+            dictionaryWindowController = DictionaryWindowController()
+        }
+        dictionaryWindowController?.showDictionaryWindow()
+    }
+
+    @MainActor
+    private func showQuickAddWindow() {
+        // Close existing quick add window if open
+        quickAddWindow?.close()
+
+        let quickAddView = QuickAddSheet()
+            .environmentObject(appState.dictionaryState)
+        let hostingController = NSHostingController(rootView: quickAddView)
+
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Add Word"
+        window.styleMask = [.titled, .closable]
+        window.setContentSize(NSSize(width: 300, height: 260))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        quickAddWindow = window
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         dictationController?.stop()
+    }
+
+    // MARK: - Services Provider
+
+    /// Handle the "Add to Speak2 Dictionary" service from right-click menu
+    @objc func addToDictionary(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        guard let text = pboard.string(forType: .string), !text.isEmpty else {
+            error.pointee = "No text selected" as NSString
+            return
+        }
+
+        Task { @MainActor in
+            showAddToDictionaryWindow(selectedText: text)
+        }
+    }
+
+    @MainActor
+    private func showAddToDictionaryWindow(selectedText: String) {
+        // Close existing window if open
+        addToDictionaryWindow?.close()
+
+        let addView = AddToDictionarySheet(selectedText: selectedText)
+            .environmentObject(appState.dictionaryState)
+        let hostingController = NSHostingController(rootView: addView)
+
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Add to Dictionary"
+        window.styleMask = [.titled, .closable]
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        addToDictionaryWindow = window
     }
 }

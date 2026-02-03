@@ -120,6 +120,46 @@ Click **Manage Models...** to open the setup window where you can download addit
 #### Choosing Hotkey
 You can choose from several hotkey options. Sometimes external keyboards don't send the function key reliably. In that case, you can choose one of the other options from the menu.
 
+#### Personal Dictionary
+
+Speak2 includes a personal dictionary feature that helps improve transcription accuracy for names, technical terms, industry jargon, and unique spellings.
+
+**Accessing the Dictionary:**
+- Click the menu bar icon → **Dictionary** → **Manage Dictionary...** to open the full management window
+- Click **Dictionary** → **Add Word...** for quick word addition
+
+**Adding Words:**
+
+Each dictionary entry can include:
+| Field | Required | Description |
+|-------|----------|-------------|
+| Word | Yes | The correct spelling you want |
+| Aliases | No | Common misspellings or mishearings (comma-separated) |
+| Pronunciation | No | Phonetic hint if the word sounds different than spelled |
+| Category | No | Organization (Names, Technical, Medical, etc.) |
+| Language | Yes | Which language this word belongs to (25 languages supported) |
+
+**How It Works:**
+
+When you speak, the transcription is post-processed using your dictionary:
+1. **Alias matching** - Direct replacement of known misspellings
+2. **Phonetic matching** - Uses Soundex algorithm to catch similar-sounding words
+
+For example, if you add "Anthropic" to your dictionary, words that sound similar (like "Antropik" or "Anthropik") will be automatically corrected.
+
+**Right-Click Service:**
+
+You can also add words directly from any application:
+1. Select/highlight any text
+2. Right-click → **Services** → **Add to Speak2 Dictionary**
+3. Choose to add as a new word or as an alias to an existing word
+
+> **Note:** The service may require logging out and back in to appear after first install.
+
+**Import/Export:**
+
+The dictionary can be exported to JSON and imported on another machine via the Manage Dictionary window.
+
 #### Launch at Login
 You can choose to have Speak2 launch at login. If selected, a checkmark will appear beside this option. Click it again to remove it from the list of start up apps. You'll see this when you choose the start up option:
 
@@ -135,6 +175,7 @@ Click the menu bar icon and click "Quit Speak2".
 - **ModelManager** - Handles model downloading, loading, and switching
 - **WhisperTranscriber** - Runs WhisperKit on-device for speech-to-text
 - **ParakeetTranscriber** - Runs FluidAudio/Parakeet on-device for speech-to-text
+- **DictionaryProcessor** - Post-processes transcription using personal dictionary (alias replacement + phonetic matching)
 - **TextInjector** - Copies transcription to clipboard and simulates Cmd+V to paste
 
 The selected model stays loaded in memory (~300-600MB RAM depending on model) for instant transcription.
@@ -144,6 +185,8 @@ The selected model stays loaded in memory (~300-600MB RAM depending on model) fo
 - Speak naturally with punctuation inflection - Whisper handles periods, commas, and question marks based on your tone
 - Keep recordings under 30 seconds for best performance
 - First transcription may be slightly slower as the model warms up
+- Add frequently used names and technical terms to your personal dictionary for better accuracy
+- Use aliases for words that are commonly misheard (e.g., add "Kubernetes" with alias "Cooper Netties")
 
 ## Known Limitations
 
