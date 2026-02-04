@@ -134,8 +134,10 @@ struct DictionaryView: View {
                     )
                 }
                 .onDelete { indexSet in
-                    for index in indexSet {
-                        let entry = dictionaryState.filteredEntries[index]
+                    // Capture the entries to delete before any state changes
+                    let entriesToDelete = indexSet.map { dictionaryState.filteredEntries[$0] }
+                    // Delete all captured entries
+                    for entry in entriesToDelete {
                         dictionaryState.delete(entry)
                     }
                 }
