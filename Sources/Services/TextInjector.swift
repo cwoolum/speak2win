@@ -44,9 +44,9 @@ final class TextInjector {
     private let accessibilityTimeout: Duration = .seconds(3)
 
     /// Fallback delay for apps that don't support accessibility notifications.
-    /// Based on empirical observation: most paste operations complete within 100-200ms.
-    /// We use 300ms to provide margin while not holding the clipboard unnecessarily long.
-    private let fallbackDelay: Duration = .milliseconds(300)
+    /// Most paste operations complete within 50ms. We use 100ms as a conservative
+    /// fallback to minimize the window where users could accidentally paste again.
+    private let fallbackDelay: Duration = .milliseconds(100)
 
     // MARK: - State
 
@@ -266,8 +266,12 @@ final class TextInjector {
         case .empty:
             pasteboard.clearContents()
         case .items(let items):
+            // IMPORTANT: clearContents() must be called before writeObjects()
+            // writeObjects() appends to the pasteboard, it doesn't replace
+            pasteboard.clearContents()
             let didWrite = pasteboard.writeObjects(items)
             if !didWrite {
+                // Restore failed - put back what we injected so user doesn't lose it
                 pasteboard.clearContents()
                 pasteboard.setString(currentSession.injectedText, forType: .string)
             }
