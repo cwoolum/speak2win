@@ -253,7 +253,7 @@ Try clicking on the model in the setup window to reload it. If that doesn't work
 ## Known Limitations
 
 - Parakeet model takes ~20-30 seconds to load on first use (compiling neural engine model)
-- Uses clipboard for text injection (temporarily overwrites clipboard contents)
+- Uses clipboard for text injection (briefly swaps clipboard contents, then attempts to restore them)
 - fn key detection requires Accessibility permission
 - Only tested on Apple Silicon Macs
 

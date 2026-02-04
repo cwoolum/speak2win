@@ -89,7 +89,9 @@ class DictationController {
 
                 await MainActor.run {
                     if !text.isEmpty {
-                        textInjector.inject(text: text)
+                        Task {
+                            await textInjector.inject(text: text)
+                        }
                     }
                     appState.recordingState = .idle
                 }
