@@ -229,8 +229,13 @@ struct ModelSelectionRow: View {
             Spacer()
 
             if isDownloading {
-                ProgressView(value: progress)
-                    .frame(width: 80)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(isDownloaded || progress >= 1.0 ? "Loading..." : "Downloading...")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    ProgressView(value: progress)
+                        .frame(width: 80)
+                }
             } else if isDownloaded {
                 HStack(spacing: 8) {
                     Text(model.estimatedSize)
