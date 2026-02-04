@@ -6,14 +6,24 @@ Local voice dictation for macOS. Hold the fn key (configurable) to speak, releas
 
 ## Speech Recognition Models
 
-Speak2 supports two speech recognition models:
+Speak2 supports multiple Whisper model sizes plus Parakeet for multilingual use:
 
 | Model | Size | Languages | Best For |
 |-------|------|-----------|----------|
-| **Whisper (base.en)** | ~140 MB | English only | Fast, accurate English transcription |
-| **Parakeet v3** | ~600 MB | 25 languages | Multilingual users |
+| **Whisper tiny.en** | ~75 MB | English only | Fastest, lowest resource usage |
+| **Whisper base.en** | ~140 MB | English only | Recommended balance of speed/accuracy |
+| **Whisper small.en** | ~460 MB | English only | Better accuracy |
+| **Whisper large-v3** | ~3 GB | 100+ languages | Best accuracy, multilingual |
+| **Whisper large-v3 turbo** | ~954 MB | 100+ languages | Fast + accurate, multilingual |
+| **Parakeet v3** | ~600 MB | 25 languages | Alternative multilingual option |
 
-You can download both and switch between them from the menu bar. Only one model is loaded at a time to conserve memory.
+You can download multiple models and switch between them from the menu bar. Only one model is loaded at a time to conserve memory.
+
+### Model Storage Location
+
+By default, models are stored in `~/Library/Application Support/Speak2/Models/`. You can change this location in the setup window (click **Manage Models...** from the menu bar) if you prefer to store large models on an external drive or different location.
+
+When changing the storage location, you'll be prompted to either move existing models to the new location or start fresh.
 
 ## Requirements
 
@@ -84,11 +94,11 @@ Click "Grant" next to Microphone. And click "Allow" on the permission window tha
 
 ### 3. Download Speech Model
 
-Choose a model and click "Download":
-- **Whisper (base.en)** - ~140MB, English only, faster
-- **Parakeet v3** - ~600MB, 25 languages, best for multilingual users
+Choose a model and click "Download". For most users, **Whisper base.en** (~140MB) is recommended as a good balance of speed and accuracy.
 
-**Note:** Parakeet takes longer to load initially (~20-30 seconds) as it compiles the neural engine model. Subsequent loads are faster. The menu bar icon will show a spinning indicator while loading.
+See the [Speech Recognition Models](#speech-recognition-models) section above for all available options.
+
+**Note:** Large models (large-v3, large-v3 turbo) will prompt for confirmation before downloading due to their size. Parakeet takes longer to load initially (~20-30 seconds) as it compiles the neural engine model. Subsequent loads are faster. The menu bar icon will show a spinning indicator while loading.
 
 Once all three items show checkmarks, the setup window will indicate completion and you can close it.
 
@@ -187,6 +197,35 @@ The selected model stays loaded in memory (~300-600MB RAM depending on model) fo
 - First transcription may be slightly slower as the model warms up
 - Add frequently used names and technical terms to your personal dictionary for better accuracy
 - Use aliases for words that are commonly misheard (e.g., add "Kubernetes" with alias "Cooper Netties")
+
+## Troubleshooting
+
+### Model won't load or keeps re-downloading
+
+If you upgraded from an earlier version of Speak2, your models may have been stored at a legacy location (`~/Documents/huggingface`). The app attempts to migrate these automatically, but if you experience issues:
+
+**Quick fix:**
+1. Open the setup window (**Manage Models...** from menu bar)
+2. Delete the affected model (trash icon)
+3. Re-download it
+
+**Manual cleanup (if needed):**
+```bash
+# Remove any orphaned model files at the old location
+rm -rf ~/Documents/huggingface
+
+# Remove incorrectly migrated files (if present)
+rm -rf ~/Library/Application\ Support/Speak2/Models/huggingface
+
+# Reset migration flag to trigger fresh migration on next launch
+defaults delete com.zachswift.speak2 didAttemptLegacyMigrationV2
+```
+
+Then restart Speak2. If you had models at the legacy location, they'll be migrated to the correct path.
+
+### Model shows as downloaded but won't transcribe
+
+Try clicking on the model in the setup window to reload it. If that doesn't work, delete and re-download the model.
 
 ## Known Limitations
 
