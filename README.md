@@ -145,17 +145,40 @@ Each dictionary entry can include:
 |-------|----------|-------------|
 | Word | Yes | The correct spelling you want |
 | Aliases | No | Common misspellings or mishearings (comma-separated) |
-| Pronunciation | No | Phonetic hint if the word sounds different than spelled |
+| Pronunciation | No | Phonetic hint for words spelled differently than pronounced |
 | Category | No | Organization (Names, Technical, Medical, etc.) |
 | Language | Yes | Which language this word belongs to (25 languages supported) |
 
 **How It Works:**
 
 When you speak, the transcription is post-processed using your dictionary:
-1. **Alias matching** - Direct replacement of known misspellings
-2. **Phonetic matching** - Uses Soundex algorithm to catch similar-sounding words
+1. **Alias matching** - Direct replacement of known misspellings (exact match, case-insensitive)
+2. **Phonetic matching** - Multiple algorithms catch similar-sounding words:
+   - **Soundex** - Traditional phonetic encoding
+   - **Metaphone** - Better handling of English pronunciation rules
+   - **Fuzzy matching** - Catches words with 70%+ similarity
 
-For example, if you add "Anthropic" to your dictionary, words that sound similar (like "Antropik" or "Anthropik") will be automatically corrected.
+**Using the Pronunciation Field:**
+
+The pronunciation field helps when a word is spelled very differently from how it sounds. When set, phonetic matching uses the pronunciation hint instead of the word's spelling.
+
+| Word | Pronunciation | Why |
+|------|---------------|-----|
+| Nguyen | "Win" | Vietnamese name pronounced differently than spelled |
+| Siobhan | "Shivon" | Irish name with non-obvious pronunciation |
+| GIF | "Jif" | If you prefer the soft G pronunciation |
+| SQL | "Sequel" | Matches the spoken acronym |
+
+**Examples:**
+
+| Scenario | Word | Aliases | Pronunciation |
+|----------|------|---------|---------------|
+| Company name | Anthropic | Antropik, Anthropik | *(not needed - sounds like spelling)* |
+| Technical term | Kubernetes | Cooper Netties, Kubernetties | *(not needed)* |
+| Person's name | Siobhan | Shivon, Shavon | Shivon |
+| Acronym | AWS | | Amazon Web Services |
+
+For most words, you won't need the pronunciation field - phonetic matching will handle common mishearings automatically. Use it only when the spelling is very different from the sound.
 
 **Right-Click Service:**
 
