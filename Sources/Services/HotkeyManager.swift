@@ -59,6 +59,15 @@ class HotkeyManager {
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        // Re-enable the tap if the system disabled it (timeout or user input)
+        // This can happen if the callback takes too long or during certain system events
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+            return Unmanaged.passRetained(event)
+        }
+
         let flags = event.flags
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
