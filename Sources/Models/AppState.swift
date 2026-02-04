@@ -205,12 +205,16 @@ class AppState: ObservableObject {
     // Personal dictionary
     let dictionaryState = DictionaryState()
 
+    // Transcription history
+    let historyState = TranscriptionHistoryState()
+
     private init() {
         // Migrate legacy models from ~/Documents/huggingface if needed
         Self.migrateModelsFromLegacyLocationIfNeeded()
 
         refreshDownloadedModels()
         dictionaryState.load()
+        historyState.load()
     }
 
     /// One-time migration from legacy ~/Documents/huggingface to new Application Support location
