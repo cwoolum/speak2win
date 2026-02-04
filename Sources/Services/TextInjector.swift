@@ -4,6 +4,9 @@ import Carbon.HIToolbox
 
 @MainActor
 final class TextInjector {
+
+    // MARK: - Types
+
     private enum OriginalClipboard {
         case empty
         case items([NSPasteboardItem])
@@ -17,12 +20,56 @@ final class TextInjector {
         let injectedText: String
     }
 
+    private struct TextStateSnapshot: Equatable {
+        let selectedTextRange: NSRange?
+        let numberOfCharacters: Int?
+
+        var hasSignal: Bool {
+            selectedTextRange != nil || numberOfCharacters != nil
+        }
+    }
+
+    /// Result of waiting for paste completion
+    private enum PasteDetectionResult {
+        case detected          // Accessibility notification confirmed paste
+        case clipboardChanged  // Something else modified the clipboard
+        case timeout           // Timed out waiting (still restore)
+        case noSignalAvailable // App doesn't support accessibility detection
+    }
+
+    // MARK: - Configuration
+
+    /// Timeout for event-driven accessibility notification.
+    /// If the app supports notifications but we don't hear back in this time, proceed anyway.
+    private let accessibilityTimeout: Duration = .seconds(3)
+
+    /// Fallback delay for apps that don't support accessibility notifications.
+    /// Based on empirical observation: most paste operations complete within 100-200ms.
+    /// We use 300ms to provide margin while not holding the clipboard unnecessarily long.
+    private let fallbackDelay: Duration = .milliseconds(300)
+
+    // MARK: - State
+
     private var session: ClipboardSession?
     private var restoreTask: Task<Void, Never>?
 
-    func inject(text: String) {
+    // MARK: - Public API
+
+    /// Inject text into the currently focused application via clipboard paste.
+    ///
+    /// This method:
+    /// 1. Snapshots the current clipboard contents
+    /// 2. Places the text on the clipboard
+    /// 3. Simulates Cmd+V
+    /// 4. Waits for paste completion using event-driven detection
+    /// 5. Restores the original clipboard contents
+    ///
+    /// The method uses `AXObserver` for event-driven paste detection when available,
+    /// falling back to a brief heuristic delay for apps without accessibility support.
+    func inject(text: String) async {
         let pasteboard = NSPasteboard.general
 
+        // Snapshot original clipboard, preserving across rapid successive calls
         let original: OriginalClipboard
         if let existingSession = session, pasteboard.changeCount == existingSession.injectedChangeCount {
             original = existingSession.original
@@ -31,10 +78,15 @@ final class TextInjector {
             original = snapshotOriginalClipboard(from: pasteboard)
         }
 
+        // Cancel any pending restore from a previous injection
         restoreTask?.cancel()
+
+        // Write text to clipboard (synchronous - no delay needed)
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         let injectedChangeCount = pasteboard.changeCount
+
+        // Create session to track this injection
         let sessionId = UUID()
         session = ClipboardSession(
             original: original,
@@ -43,26 +95,138 @@ final class TextInjector {
             injectedText: text
         )
 
-        // Small delay to ensure clipboard is ready
-        usleep(50000) // 50ms
-
+        // Capture focused element state BEFORE paste for change detection
         let focusedElement = fetchFocusedUIElement()
         let baseline = focusedElement.map { snapshotTextState(of: $0) }
 
-        // Simulate Cmd+V
+        // Simulate Cmd+V to paste
         simulatePaste()
 
-        // Restore prior clipboard contents after paste is likely consumed.
-        // Prefer a content-change signal from the focused UI element; fall back to a conservative timeout.
+        // Wait for paste completion and restore clipboard
         restoreTask = Task { @MainActor in
-            await restoreClipboardAfterPaste(
-                on: pasteboard,
+            let result = await self.waitForPasteCompletion(
+                pasteboard: pasteboard,
                 sessionId: sessionId,
                 focusedElement: focusedElement,
                 baseline: baseline
             )
+
+            // Log detection method for debugging (remove in production or use proper logging)
+            #if DEBUG
+            switch result {
+            case .detected:
+                print("[TextInjector] Paste detected via accessibility notification")
+            case .clipboardChanged:
+                print("[TextInjector] Clipboard changed externally, skipping restore")
+            case .timeout:
+                print("[TextInjector] Accessibility timeout reached, restoring clipboard")
+            case .noSignalAvailable:
+                print("[TextInjector] No accessibility signal, used fallback delay")
+            }
+            #endif
+
+            // Don't restore if clipboard was modified externally
+            if case .clipboardChanged = result {
+                self.session = nil
+                return
+            }
+
+            self.restoreClipboard(on: pasteboard, sessionId: sessionId)
         }
     }
+
+    // MARK: - Paste Detection
+
+    private func waitForPasteCompletion(
+        pasteboard: NSPasteboard,
+        sessionId: UUID,
+        focusedElement: AXUIElement?,
+        baseline: TextStateSnapshot?
+    ) async -> PasteDetectionResult {
+
+        // Check if clipboard was modified externally
+        guard let currentSession = session, currentSession.id == sessionId else {
+            return .clipboardChanged
+        }
+        if pasteboard.changeCount != currentSession.injectedChangeCount {
+            return .clipboardChanged
+        }
+
+        // Strategy 1: Event-driven detection via AXObserver
+        if let element = focusedElement,
+           AccessibilityObserver.supportsTextChangeNotifications(element: element) {
+            let observer = AccessibilityObserver()
+            do {
+                try await observer.waitForTextChange(on: element, timeout: accessibilityTimeout)
+                return .detected
+            } catch AccessibilityObserver.ObserverError.timeout {
+                return .timeout
+            } catch {
+                // Fall through to polling/fallback
+            }
+        }
+
+        // Strategy 2: Polling-based detection (for elements that support attributes but not notifications)
+        if let element = focusedElement, let baseline = baseline, baseline.hasSignal {
+            let pollResult = await pollForTextChange(
+                element: element,
+                baseline: baseline,
+                pasteboard: pasteboard,
+                sessionId: sessionId
+            )
+            if pollResult != .noSignalAvailable {
+                return pollResult
+            }
+        }
+
+        // Strategy 3: Fallback delay for apps without any accessibility support
+        // This is the least desirable path but necessary for compatibility
+        try? await Task.sleep(for: fallbackDelay)
+
+        // Final clipboard check
+        guard let currentSession = session, currentSession.id == sessionId else {
+            return .clipboardChanged
+        }
+        if pasteboard.changeCount != currentSession.injectedChangeCount {
+            return .clipboardChanged
+        }
+
+        return .noSignalAvailable
+    }
+
+    /// Poll for text changes when notifications aren't available but attributes are.
+    /// Uses short intervals since we already know the element supports accessibility.
+    private func pollForTextChange(
+        element: AXUIElement,
+        baseline: TextStateSnapshot,
+        pasteboard: NSPasteboard,
+        sessionId: UUID
+    ) async -> PasteDetectionResult {
+        let pollInterval: Duration = .milliseconds(50)
+        let maxPolls = 20 // 1 second max polling time
+
+        for _ in 0..<maxPolls {
+            // Check for external clipboard modification
+            guard let currentSession = session, currentSession.id == sessionId else {
+                return .clipboardChanged
+            }
+            if pasteboard.changeCount != currentSession.injectedChangeCount {
+                return .clipboardChanged
+            }
+
+            // Check for text change
+            let current = snapshotTextState(of: element)
+            if current.hasSignal && indicatesPasteConsumed(baseline: baseline, current: current) {
+                return .detected
+            }
+
+            try? await Task.sleep(for: pollInterval)
+        }
+
+        return .timeout
+    }
+
+    // MARK: - Clipboard Operations
 
     private func snapshotOriginalClipboard(from pasteboard: NSPasteboard) -> OriginalClipboard {
         guard let items = pasteboard.pasteboardItems, !items.isEmpty else { return .empty }
@@ -85,17 +249,51 @@ final class TextInjector {
             return .items(snapshots)
         }
 
-        // Clipboard wasn't empty, but we couldn't snapshot any writable types.
+        // Clipboard wasn't empty, but we couldn't snapshot any writable types
         return .unrecoverable
     }
 
-    private struct TextStateSnapshot: Equatable {
-        let selectedTextRange: NSRange?
-        let numberOfCharacters: Int?
-
-        var hasSignal: Bool {
-            selectedTextRange != nil || numberOfCharacters != nil
+    private func restoreClipboard(on pasteboard: NSPasteboard, sessionId: UUID) {
+        guard let currentSession = session, currentSession.id == sessionId else { return }
+        guard pasteboard.changeCount == currentSession.injectedChangeCount else {
+            session = nil
+            return
         }
+
+        switch currentSession.original {
+        case .unrecoverable:
+            break
+        case .empty:
+            pasteboard.clearContents()
+        case .items(let items):
+            let didWrite = pasteboard.writeObjects(items)
+            if !didWrite {
+                pasteboard.clearContents()
+                pasteboard.setString(currentSession.injectedText, forType: .string)
+            }
+        }
+        session = nil
+    }
+
+    // MARK: - Accessibility Helpers
+
+    private func fetchFocusedUIElement() -> AXUIElement? {
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var focused: CFTypeRef?
+        let error = AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedUIElementAttribute as CFString,
+            &focused
+        )
+        guard error == .success, let focused else { return nil }
+        return (focused as! AXUIElement)
+    }
+
+    private func snapshotTextState(of element: AXUIElement) -> TextStateSnapshot {
+        TextStateSnapshot(
+            selectedTextRange: copyRangeAttribute(of: element, attribute: kAXSelectedTextRangeAttribute),
+            numberOfCharacters: copyIntAttribute(of: element, attribute: kAXNumberOfCharactersAttribute)
+        )
     }
 
     private func indicatesPasteConsumed(baseline: TextStateSnapshot, current: TextStateSnapshot) -> Bool {
@@ -108,21 +306,6 @@ final class TextInjector {
         }
 
         return false
-    }
-
-    private func fetchFocusedUIElement() -> AXUIElement? {
-        let systemWideElement = AXUIElementCreateSystemWide()
-        var focused: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focused)
-        guard error == .success, let focused else { return nil }
-        return (focused as! AXUIElement)
-    }
-
-    private func snapshotTextState(of element: AXUIElement) -> TextStateSnapshot {
-        TextStateSnapshot(
-            selectedTextRange: copyRangeAttribute(of: element, attribute: kAXSelectedTextRangeAttribute),
-            numberOfCharacters: copyIntAttribute(of: element, attribute: kAXNumberOfCharactersAttribute)
-        )
     }
 
     private func copyIntAttribute(of element: AXUIElement, attribute: String) -> Int? {
@@ -147,72 +330,11 @@ final class TextInjector {
         return NSRange(location: range.location, length: range.length)
     }
 
-    private func restoreClipboardAfterPaste(
-        on pasteboard: NSPasteboard,
-        sessionId: UUID,
-        focusedElement: AXUIElement?,
-        baseline: TextStateSnapshot?
-    ) async {
-        // Prefer to restore only after we observe a change in the focused element.
-        // The timeout is intentionally conservative to reduce the chance of restoring before a delayed paste is consumed.
-        let pollIntervalNanos: UInt64 = 100_000_000 // 100ms
-        let timeoutNanos: UInt64 = 30_000_000_000 // 30s
-
-        var elapsed: UInt64 = 0
-        while !Task.isCancelled {
-            guard let currentSession = session, currentSession.id == sessionId else { return }
-
-            // If the user/app changed the clipboard after we injected, don't restore.
-            if pasteboard.changeCount != currentSession.injectedChangeCount {
-                session = nil
-                return
-            }
-
-            if let focusedElement, let baseline, baseline.hasSignal {
-                let current = snapshotTextState(of: focusedElement)
-                if current.hasSignal, indicatesPasteConsumed(baseline: baseline, current: current) {
-                    restoreClipboard(on: pasteboard, session: currentSession)
-                    return
-                }
-            }
-
-            if elapsed >= timeoutNanos {
-                restoreClipboard(on: pasteboard, session: currentSession)
-                return
-            }
-
-            try? await Task.sleep(nanoseconds: pollIntervalNanos)
-            elapsed += pollIntervalNanos
-        }
-    }
-
-    private func restoreClipboard(on pasteboard: NSPasteboard, session: ClipboardSession) {
-        guard self.session?.id == session.id else { return }
-        guard pasteboard.changeCount == session.injectedChangeCount else {
-            self.session = nil
-            return
-        }
-
-        switch session.original {
-        case .unrecoverable:
-            break
-        case .empty:
-            pasteboard.clearContents()
-        case .items(let items):
-            let didWrite = pasteboard.writeObjects(items)
-            if !didWrite {
-                pasteboard.clearContents()
-                pasteboard.setString(session.injectedText, forType: .string)
-            }
-        }
-        self.session = nil
-    }
+    // MARK: - Keyboard Simulation
 
     private func simulatePaste() {
         let source = CGEventSource(stateID: .hidSystemState)
-
-        // Key code for 'V' is 9
-        let keyCode: CGKeyCode = 9
+        let keyCode: CGKeyCode = 9 // 'V' key
 
         // Key down with Command modifier
         if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
