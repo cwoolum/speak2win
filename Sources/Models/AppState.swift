@@ -206,8 +206,115 @@ class AppState: ObservableObject {
     let dictionaryState = DictionaryState()
 
     private init() {
+        // Migrate legacy models from ~/Documents/huggingface if needed
+        Self.migrateModelsFromLegacyLocationIfNeeded()
+
         refreshDownloadedModels()
         dictionaryState.load()
+    }
+
+    /// One-time migration from legacy ~/Documents/huggingface to new Application Support location
+    private static func migrateModelsFromLegacyLocationIfNeeded() {
+        // Only migrate if user hasn't set a custom location
+        guard UserDefaults.standard.string(forKey: "modelStorageLocation") == nil else { return }
+
+        // Check if we've already attempted migration
+        guard !UserDefaults.standard.bool(forKey: "didAttemptLegacyMigrationV2") else { return }
+        UserDefaults.standard.set(true, forKey: "didAttemptLegacyMigrationV2")
+
+        let legacyLocation = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/huggingface")
+
+        // Check if legacy location has WhisperKit models (actual structure: models/argmaxinc/whisperkit-coreml/)
+        let legacyModelsPath = legacyLocation
+            .appendingPathComponent("models")
+            .appendingPathComponent("argmaxinc")
+            .appendingPathComponent("whisperkit-coreml")
+
+        guard FileManager.default.fileExists(atPath: legacyModelsPath.path),
+              let contents = try? FileManager.default.contentsOfDirectory(atPath: legacyModelsPath.path),
+              contents.contains(where: { $0.contains("whisper") }) else {
+            return
+        }
+
+        // Found legacy models - migrate them
+        let newLocation = defaultModelStorageLocation
+        // Match WhisperKit's internal path structure (no "huggingface" prefix)
+        let newModelsPath = newLocation
+            .appendingPathComponent("models")
+            .appendingPathComponent("argmaxinc")
+            .appendingPathComponent("whisperkit-coreml")
+
+        do {
+            // Create destination directory
+            try FileManager.default.createDirectory(at: newModelsPath, withIntermediateDirectories: true)
+
+            // Move each model folder (e.g., openai_whisper-base.en)
+            for item in contents {
+                // Skip hidden files and cache
+                guard !item.hasPrefix(".") else { continue }
+
+                let sourcePath = legacyModelsPath.appendingPathComponent(item)
+                let destPath = newModelsPath.appendingPathComponent(item)
+
+                // Check if it's a directory (model folder)
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: sourcePath.path, isDirectory: &isDir),
+                      isDir.boolValue else { continue }
+
+                if !FileManager.default.fileExists(atPath: destPath.path) {
+                    try FileManager.default.moveItem(at: sourcePath, to: destPath)
+                    print("Migrated model: \(item)")
+                }
+            }
+
+            // Update stored paths for known models
+            updateStoredPathsAfterMigration(newModelsPath: newModelsPath)
+
+            print("Successfully migrated Whisper models to \(newLocation.path)")
+        } catch {
+            print("Failed to migrate legacy models: \(error)")
+        }
+    }
+
+    /// Update stored model paths after migration
+    private static func updateStoredPathsAfterMigration(newModelsPath: URL) {
+        // Scan the new location for model folders and update stored paths
+        guard let folders = try? FileManager.default.contentsOfDirectory(atPath: newModelsPath.path) else { return }
+
+        for folder in folders {
+            // Skip hidden files
+            guard !folder.hasPrefix(".") else { continue }
+
+            let modelPath = newModelsPath.appendingPathComponent(folder)
+
+            // Match folder name to model
+            for model in TranscriptionModel.allCases {
+                if folderMatchesModel(folder, model: model) {
+                    TranscriptionModel.setStoredWhisperPath(modelPath, for: model)
+                    print("Registered model path for \(model.displayName): \(modelPath.path)")
+                }
+            }
+        }
+    }
+
+    /// Helper to match folder names to models (handles WhisperKit naming conventions)
+    private static func folderMatchesModel(_ folder: String, model: TranscriptionModel) -> Bool {
+        let folderLower = folder.lowercased()
+        switch model {
+        case .whisperTinyEn:
+            return folderLower.contains("tiny") && folderLower.contains("en")
+        case .whisperBaseEn:
+            return folderLower.contains("base") && folderLower.contains("en") && !folderLower.contains("large")
+        case .whisperSmallEn:
+            return folderLower.contains("small") && folderLower.contains("en")
+        case .whisperLargeV3:
+            return folderLower.contains("large-v3") && !folderLower.contains("turbo")
+        case .whisperLargeV3Turbo:
+            return folderLower.contains("large") && folderLower.contains("turbo")
+        case .parakeetV3:
+            return false
+        }
     }
 
     var isSetupComplete: Bool {
