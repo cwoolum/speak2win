@@ -22,6 +22,7 @@ actor WhisperTranscriber: TranscriptionEngine {
         // Download model first with progress tracking
         let modelFolder = try await WhisperKit.download(
             variant: variant,
+            downloadBase: await AppState.modelStorageLocation,
             progressCallback: { progress in
                 Task { @MainActor in
                     progressHandler(progress.fractionCompleted)

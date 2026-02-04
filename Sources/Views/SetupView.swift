@@ -50,6 +50,11 @@ struct SetupView: View {
                         onDelete: { deleteModel(model) }
                     )
                 }
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                ModelStorageLocationRow(appState: appState)
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -267,6 +272,77 @@ struct ModelSelectionRow: View {
                 onSelect()
             } else if !isDownloaded && !isDownloading {
                 onDownload()
+            }
+        }
+    }
+}
+
+struct ModelStorageLocationRow: View {
+    @ObservedObject var appState: AppState
+    @State private var storageLocation: URL = AppState.modelStorageLocation
+    
+    private var isDefaultLocation: Bool {
+        storageLocation.path == AppState.defaultModelStorageLocation.path
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Model Storage Location")
+                        .fontWeight(.medium)
+                    Text("Where downloaded models are stored")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if !isDefaultLocation {
+                    Button("Use Default") {
+                        useDefault()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                Button("Choose Folder...") {
+                    chooseFolder()
+                }
+                .buttonStyle(.bordered)
+            }
+            
+            Text(storageLocation.path)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .onAppear {
+            storageLocation = AppState.modelStorageLocation
+        }
+    }
+    
+    private func useDefault() {
+        storageLocation = AppState.defaultModelStorageLocation
+        AppState.modelStorageLocation = AppState.defaultModelStorageLocation
+        appState.refreshDownloadedModels()
+    }
+    
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a folder to store downloaded models"
+        panel.directoryURL = storageLocation
+        
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                storageLocation = url
+                AppState.modelStorageLocation = url
+                // Refresh downloaded models status since paths are now different
+                appState.refreshDownloadedModels()
             }
         }
     }

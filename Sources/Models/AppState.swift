@@ -178,6 +178,29 @@ class AppState: ObservableObject {
     @Published var selectedModel: TranscriptionModel = TranscriptionModel.saved
     @Published var currentlyLoadedModel: TranscriptionModel? = nil
     @Published var downloadedModels: Set<TranscriptionModel> = []
+    
+    // Model storage location preference
+    static var defaultModelStorageLocation: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Speak2")
+            .appendingPathComponent("Models")
+    }
+
+    static var modelStorageLocation: URL {
+        get {
+            if let path = UserDefaults.standard.string(forKey: "modelStorageLocation") {
+                return URL(fileURLWithPath: path)
+            }
+            return defaultModelStorageLocation
+        }
+        set {
+            UserDefaults.standard.set(newValue.path, forKey: "modelStorageLocation")
+            // Clear all stored model paths since they point to the old location
+            for model in TranscriptionModel.allCases {
+                TranscriptionModel.setStoredWhisperPath(nil, for: model)
+            }
+        }
+    }
 
     // Personal dictionary
     let dictionaryState = DictionaryState()
