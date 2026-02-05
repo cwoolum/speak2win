@@ -21,7 +21,7 @@ You can download multiple models and switch between them from the menu bar. Only
 
 ### Model Storage Location
 
-By default, models are stored in `~/Library/Application Support/Speak2/Models/`. You can change this location in the setup window (click **Manage Models...** from the menu bar) if you prefer to store large models on an external drive or different location.
+By default, models are stored in `~/Library/Application Support/Speak2/Models/`. You can change this location in **Settings > Models** if you prefer to store large models on an external drive or different location.
 
 When changing the storage location, you'll be prompted to either move existing models to the new location or start fresh.
 
@@ -102,6 +102,8 @@ See the [Speech Recognition Models](#speech-recognition-models) section above fo
 
 Once all three items show checkmarks, the setup window will indicate completion and you can close it.
 
+> **Note:** Speak2 automatically detects when permissions are granted and will start the hotkey listener without a restart. In rare cases, macOS may not register the permission change immediately - if the hotkey doesn't respond after granting permissions, quit and relaunch Speak2.
+
 ## Usage
 
 1. **Hold the fn key** - Recording starts (menu bar icon turns red)
@@ -124,19 +126,28 @@ The menu shows a status line at the top indicating the current state (e.g., "Rea
 #### Switching Models
 Click the menu bar icon and select **Model** to switch between downloaded models. Models not yet downloaded show a ↓ indicator - clicking them opens the setup window to download.
 
-#### Manage Models
-Click **Manage Models...** to open the setup window where you can download additional models or delete existing ones to free up disk space.
-
 #### Choosing Hotkey
-You can choose from several hotkey options. Sometimes external keyboards don't send the function key reliably. In that case, you can choose one of the other options from the menu.
+You can choose from several hotkey options. Sometimes external keyboards don't send the function key reliably. In that case, you can choose one of the other options from the menu bar **Hotkey** submenu, or in **Settings > General**.
+
+#### Settings
+
+Click **Settings...** (⌘,) from the menu bar to open the unified settings window with four tabs:
+
+- **General** - Permissions, hotkey configuration, launch at login
+- **Models** - Download, manage, and delete speech recognition models; configure storage location
+- **Dictionary** - Manage your personal dictionary (add, edit, import/export words)
+- **History** - Browse, search, and export your transcription history
+
+#### Add Word
+Click **Add Word...** from the menu bar for quick dictionary word addition without opening the full settings window.
 
 #### Personal Dictionary
 
 Speak2 includes a personal dictionary feature that helps improve transcription accuracy for names, technical terms, industry jargon, and unique spellings.
 
 **Accessing the Dictionary:**
-- Click the menu bar icon → **Dictionary** → **Manage Dictionary...** to open the full management window
-- Click **Dictionary** → **Add Word...** for quick word addition
+- Click the menu bar icon → **Add Word...** for quick word addition
+- Open **Settings > Dictionary** for full dictionary management
 
 **Adding Words:**
 
@@ -191,12 +202,21 @@ You can also add words directly from any application:
 
 **Import/Export:**
 
-The dictionary can be exported to JSON and imported on another machine via the Manage Dictionary window.
+The dictionary can be exported to JSON and imported on another machine via **Settings > Dictionary**.
+
+#### Transcription History
+
+Speak2 keeps a history of your last 500 transcriptions, grouped by date (Today, Yesterday, Last 7 Days, etc.).
+
+- Open **Settings > History** to browse, search, and export your transcription history
+- Click the copy icon on any entry to copy it to your clipboard
+- Use the model filter dropdown to show only transcriptions from a specific model
+- Long transcriptions show a "Show More" toggle to expand the full text
+
+History is stored locally at `~/Library/Application Support/Speak2/transcription_history.json`.
 
 #### Launch at Login
-You can choose to have Speak2 launch at login. If selected, a checkmark will appear beside this option. Click it again to remove it from the list of start up apps. You'll see this when you choose the start up option:
-
-<img width="352" height="98" alt="image" src="https://github.com/user-attachments/assets/b2480437-044f-402f-af8b-a4cc0b9d04b8" />
+Toggle this option in **Settings > General**.
 
 #### Quit Speak2
 Click the menu bar icon and click "Quit Speak2".
@@ -209,6 +229,7 @@ Click the menu bar icon and click "Quit Speak2".
 - **WhisperTranscriber** - Runs WhisperKit on-device for speech-to-text
 - **ParakeetTranscriber** - Runs FluidAudio/Parakeet on-device for speech-to-text
 - **DictionaryProcessor** - Post-processes transcription using personal dictionary (alias replacement + phonetic matching)
+- **TranscriptionHistoryStorage** - Persists transcription history to local JSON (up to 500 entries)
 - **TextInjector** - Copies transcription to clipboard and simulates Cmd+V to paste
 
 The selected model stays loaded in memory (~300-600MB RAM depending on model) for instant transcription.
@@ -228,7 +249,7 @@ The selected model stays loaded in memory (~300-600MB RAM depending on model) fo
 If you upgraded from an earlier version of Speak2, your models may have been stored at a legacy location (`~/Documents/huggingface`). The app attempts to migrate these automatically, but if you experience issues:
 
 **Quick fix:**
-1. Open the setup window (**Manage Models...** from menu bar)
+1. Open **Settings > Models**
 2. Delete the affected model (trash icon)
 3. Re-download it
 
@@ -248,7 +269,11 @@ Then restart Speak2. If you had models at the legacy location, they'll be migrat
 
 ### Model shows as downloaded but won't transcribe
 
-Try clicking on the model in the setup window to reload it. If that doesn't work, delete and re-download the model.
+Try clicking on the model in **Settings > Models** to reload it. If that doesn't work, delete and re-download the model.
+
+### Hotkey doesn't work after granting permissions
+
+Speak2 automatically detects permission changes and starts the hotkey listener. If the hotkey still doesn't respond after granting both Accessibility and Microphone permissions, quit and relaunch Speak2. macOS occasionally requires a restart for CGEvent tap permissions to take effect.
 
 ## Known Limitations
 
