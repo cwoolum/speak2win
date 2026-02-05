@@ -17,6 +17,7 @@ struct Speak2App: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var setupWindowController: SetupWindowController?
+    private var settingsWindowController: SettingsWindowController?
     private var dictionaryWindowController: DictionaryWindowController?
     private var historyWindowController: TranscriptionHistoryWindowController?
     private var quickAddWindow: NSWindow?
@@ -73,6 +74,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Listen for requests to open unified settings window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenSettingsWindow),
+            name: .openSettingsWindow,
+            object: nil
+        )
+
+        // Listen for hotkey changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleHotkeyChanged),
+            name: .hotkeyChanged,
+            object: nil
+        )
+
         // Observe setup completion to start dictation
         observeSetupCompletion()
 
@@ -103,6 +120,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleOpenHistoryWindow() {
         Task { @MainActor in
             showHistoryWindow()
+        }
+    }
+
+    @objc private func handleOpenSettingsWindow() {
+        Task { @MainActor in
+            showSettingsWindow()
+        }
+    }
+
+    @objc private func handleHotkeyChanged(_ notification: Notification) {
+        guard let hotkey = notification.userInfo?["hotkey"] as? HotkeyOption else { return }
+        Task { @MainActor in
+            dictationController?.updateHotkey(hotkey)
         }
     }
 
@@ -180,6 +210,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             historyWindowController = TranscriptionHistoryWindowController()
         }
         historyWindowController?.showHistoryWindow()
+    }
+
+    @MainActor
+    private func showSettingsWindow() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController()
+        }
+        settingsWindowController?.showSettingsWindow(modelManager: dictationController?.modelManager)
     }
 
     @MainActor

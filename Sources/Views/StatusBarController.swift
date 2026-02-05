@@ -137,6 +137,15 @@ class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Settings menu item
+        let settingsItem = NSMenuItem(
+            title: "Settings...",
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         // Launch at Login toggle
         let launchAtLoginItem = NSMenuItem(
             title: "Launch at Login",
@@ -226,6 +235,10 @@ class StatusBarController {
 
     @objc private func openHistory() {
         NotificationCenter.default.post(name: .openHistoryWindow, object: nil)
+    }
+
+    @objc private func openSettings() {
+        NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
     }
 
     private func observeState() {
