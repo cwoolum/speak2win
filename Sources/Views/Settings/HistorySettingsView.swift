@@ -5,7 +5,6 @@ struct HistorySettingsView: View {
     @EnvironmentObject var historyState: TranscriptionHistoryState
     @State private var searchText: String = ""
     @State private var showingClearConfirmation = false
-    @State private var selectedEntries = Set<TranscriptionHistoryEntry.ID>()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,8 +14,10 @@ struct HistorySettingsView: View {
             }
 
             // Main content
-            if historyState.filteredEntries.isEmpty && searchText.isEmpty {
+            if historyState.entries.isEmpty {
                 emptyStateView
+            } else if historyState.groupedEntries.isEmpty && !searchText.isEmpty {
+                noResultsView
             } else {
                 listView
             }
@@ -29,7 +30,37 @@ struct HistorySettingsView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                // Export button
+                // Model filter
+                Menu {
+                    Button {
+                        historyState.modelFilter = nil
+                    } label: {
+                        if historyState.modelFilter == nil {
+                            Label("All Models", systemImage: "checkmark")
+                        } else {
+                            Text("All Models")
+                        }
+                    }
+                    Divider()
+                    ForEach(historyState.availableModels, id: \.self) { model in
+                        Button {
+                            historyState.modelFilter = model
+                        } label: {
+                            if historyState.modelFilter == model {
+                                Label(model, systemImage: "checkmark")
+                            } else {
+                                Text(model)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(
+                        historyState.modelFilter ?? "All Models",
+                        systemImage: "waveform"
+                    )
+                }
+
+                // Export
                 Menu {
                     Button("Export...", systemImage: "square.and.arrow.up") {
                         exportHistory()
@@ -38,7 +69,7 @@ struct HistorySettingsView: View {
                     Label("More", systemImage: "ellipsis.circle")
                 }
 
-                // Clear all button
+                // Clear all
                 Button {
                     showingClearConfirmation = true
                 } label: {
@@ -61,14 +92,22 @@ struct HistorySettingsView: View {
 
     private var listView: some View {
         VStack(spacing: 0) {
-            List(selection: $selectedEntries) {
-                ForEach(historyState.filteredEntries) { entry in
-                    TranscriptionHistoryRow(
-                        entry: entry,
-                        onCopy: { historyState.copyToClipboard(entry) },
-                        onDelete: { historyState.delete(entry) }
-                    )
-                    .tag(entry.id)
+            List {
+                ForEach(historyState.groupedEntries, id: \.section) { group in
+                    Section {
+                        ForEach(group.entries) { entry in
+                            TranscriptionHistoryRow(
+                                entry: entry,
+                                onCopy: { historyState.copyToClipboard(entry) },
+                                onDelete: { historyState.delete(entry) }
+                            )
+                        }
+                    } header: {
+                        Text(group.section.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
@@ -78,7 +117,7 @@ struct HistorySettingsView: View {
                 Text("\(historyState.filteredEntries.count) entries")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if !searchText.isEmpty {
+                if !searchText.isEmpty || historyState.modelFilter != nil {
                     Text("·")
                         .foregroundStyle(.tertiary)
                     Text("\(historyState.entries.count) total")
@@ -107,6 +146,20 @@ struct HistorySettingsView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+    }
+
+    private var noResultsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 36, weight: .thin))
+                .foregroundStyle(.tertiary)
+
+            Text("No results for \"\(searchText)\"")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)

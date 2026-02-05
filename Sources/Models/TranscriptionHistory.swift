@@ -25,18 +25,39 @@ struct TranscriptionHistoryEntry: Codable, Identifiable, Hashable {
         self.audioLength = audioLength
     }
 
-    /// Truncated text for display in list (first 50 chars + ellipsis)
-    var displayText: String {
-        if text.count > 50 {
-            return String(text.prefix(50)) + "..."
-        }
-        return text
+    /// Formatted time for the metadata footer (e.g., "2:34 PM")
+    var displayTime: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp)
     }
+}
 
-    /// Formatted timestamp for display
-    var displayTimestamp: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: timestamp, relativeTo: Date())
+/// Date sections for grouping history entries
+enum DateSection: String, CaseIterable, Hashable {
+    case today = "Today"
+    case yesterday = "Yesterday"
+    case last7Days = "Last 7 Days"
+    case last30Days = "Last 30 Days"
+    case older = "Older"
+
+    static func from(_ date: Date) -> DateSection {
+        let calendar = Calendar.current
+        let now = Date()
+
+        if calendar.isDateInToday(date) {
+            return .today
+        } else if calendar.isDateInYesterday(date) {
+            return .yesterday
+        } else if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now),
+                  date >= weekAgo {
+            return .last7Days
+        } else if let monthAgo = calendar.date(byAdding: .day, value: -30, to: now),
+                  date >= monthAgo {
+            return .last30Days
+        } else {
+            return .older
+        }
     }
 }

@@ -62,13 +62,22 @@ struct TranscriptionHistoryView: View {
     private var listView: some View {
         VStack(spacing: 0) {
             List(selection: $selectedEntries) {
-                ForEach(historyState.filteredEntries) { entry in
-                    TranscriptionHistoryRow(
-                        entry: entry,
-                        onCopy: { historyState.copyToClipboard(entry) },
-                        onDelete: { historyState.delete(entry) }
-                    )
-                    .tag(entry.id)
+                ForEach(historyState.groupedEntries, id: \.section) { group in
+                    Section {
+                        ForEach(group.entries) { entry in
+                            TranscriptionHistoryRow(
+                                entry: entry,
+                                onCopy: { historyState.copyToClipboard(entry) },
+                                onDelete: { historyState.delete(entry) }
+                            )
+                            .tag(entry.id)
+                        }
+                    } header: {
+                        Text(group.section.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))

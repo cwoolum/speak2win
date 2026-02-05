@@ -1,7 +1,7 @@
 import Foundation
 
 class TranscriptionHistoryStorage {
-    private static let maxEntries = 20
+    private static let maxEntries = 500
     private static let maxTextLength = 10_000  // Prevent huge transcriptions from bloating file
 
     private var fileURL: URL {

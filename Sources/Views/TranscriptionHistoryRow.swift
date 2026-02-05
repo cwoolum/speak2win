@@ -5,89 +5,131 @@ struct TranscriptionHistoryRow: View {
     let onCopy: () -> Void
     let onDelete: () -> Void
 
-    @State private var isHovering = false
+    @State private var isExpanded = false
     @State private var justCopied = false
+    @State private var isTruncated = false
+    @State private var fullTextHeight: CGFloat = 0
+    @State private var truncatedTextHeight: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Timestamp badge
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.displayTimestamp)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-                Text(entry.modelUsed)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .frame(width: 100, alignment: .leading)
-
-            Divider()
-
-            // Transcription text
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.displayText)
-                    .font(.body)
-                    .lineLimit(2)
-                    .foregroundStyle(.primary)
-
-                if entry.text != entry.displayText {
-                    Text("\(entry.text.count) characters")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 8) {
+            // Transcription text (the hero)
+            Text(entry.text)
+                .font(.body)
+                .lineLimit(isExpanded ? nil : 3)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .background(
+                    // Hidden full-height text to measure natural size
+                    Text(entry.text)
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .background(GeometryReader { geo in
+                            Color.clear.preference(
+                                key: FullHeightKey.self,
+                                value: geo.size.height
+                            )
+                        })
+                )
+                .background(GeometryReader { geo in
+                    Color.clear.preference(
+                        key: TruncatedHeightKey.self,
+                        value: geo.size.height
+                    )
+                })
+                .onPreferenceChange(FullHeightKey.self) { height in
+                    fullTextHeight = height
+                    updateTruncation()
                 }
+                .onPreferenceChange(TruncatedHeightKey.self) { height in
+                    truncatedTextHeight = height
+                    updateTruncation()
+                }
+
+            // "Show More / Less" only when text is actually being clipped
+            if isTruncated || isExpanded {
+                Button(isExpanded ? "Show Less" : "Show More") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
             }
 
-            Spacer()
-
-            // Language badge
-            Text(entry.language.displayName)
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
-                .foregroundStyle(.secondary)
-
-            // Actions
+            // Metadata footer line
             HStack(spacing: 6) {
-                Button(action: {
+                Text(entry.displayTime)
+                    .foregroundStyle(.secondary)
+
+                Text("\u{00B7}")
+                    .foregroundStyle(.quaternary)
+
+                Text(entry.modelUsed)
+                    .foregroundStyle(.secondary)
+
+                Text("\u{00B7}")
+                    .foregroundStyle(.quaternary)
+
+                Text(entry.language.displayName)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                // Copy button
+                Button {
                     onCopy()
-                    // Show "Copied!" feedback
                     justCopied = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         justCopied = false
                     }
-                }) {
+                } label: {
                     Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 14))
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .help(justCopied ? "Copied!" : "Copy to clipboard")
+                .foregroundColor(justCopied ? .green : .accentColor)
+                .help("Copy to clipboard")
 
-                Button(action: onDelete) {
+                // Delete button
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 14))
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.red.opacity(0.8))
+                .foregroundStyle(.red.opacity(0.6))
                 .help("Delete")
             }
-            .opacity(isHovering ? 1 : 0)
+            .font(.caption)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
         .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovering = hovering
-            }
+    }
+
+    private func updateTruncation() {
+        if !isExpanded {
+            isTruncated = fullTextHeight > truncatedTextHeight + 1
         }
-        .onTapGesture {
-            onCopy()
-        }
+    }
+}
+
+// MARK: - Preference Keys
+
+private struct FullHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct TruncatedHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

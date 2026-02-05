@@ -6,17 +6,41 @@ import AppKit
 class TranscriptionHistoryState: ObservableObject {
     @Published var entries: [TranscriptionHistoryEntry] = []
     @Published var searchQuery: String = ""
+    @Published var modelFilter: String? = nil
     @Published var errorMessage: String? = nil
 
     private let storage = TranscriptionHistoryStorage()
 
+    /// All unique model names present in history, for the filter dropdown
+    var availableModels: [String] {
+        Array(Set(entries.map { $0.modelUsed })).sorted()
+    }
+
     var filteredEntries: [TranscriptionHistoryEntry] {
-        if searchQuery.isEmpty {
-            return entries
+        var result = entries
+
+        if let modelFilter, !modelFilter.isEmpty {
+            result = result.filter { $0.modelUsed == modelFilter }
         }
-        return entries.filter { entry in
-            entry.text.localizedCaseInsensitiveContains(searchQuery) ||
-            entry.modelUsed.localizedCaseInsensitiveContains(searchQuery)
+
+        if !searchQuery.isEmpty {
+            result = result.filter { entry in
+                entry.text.localizedCaseInsensitiveContains(searchQuery) ||
+                entry.modelUsed.localizedCaseInsensitiveContains(searchQuery)
+            }
+        }
+
+        return result
+    }
+
+    /// Group filtered entries by date section
+    var groupedEntries: [(section: DateSection, entries: [TranscriptionHistoryEntry])] {
+        let grouped = Dictionary(grouping: filteredEntries) { entry in
+            DateSection.from(entry.timestamp)
+        }
+        return DateSection.allCases.compactMap { section in
+            guard let entries = grouped[section], !entries.isEmpty else { return nil }
+            return (section: section, entries: entries)
         }
     }
 
@@ -49,9 +73,9 @@ class TranscriptionHistoryState: ObservableObject {
         // Insert at beginning (most recent first)
         entries.insert(entry, at: 0)
 
-        // Auto-trim to 20
-        if entries.count > 20 {
-            entries = Array(entries.prefix(20))
+        // Auto-trim to 500
+        if entries.count > 500 {
+            entries = Array(entries.prefix(500))
         }
 
         save()
