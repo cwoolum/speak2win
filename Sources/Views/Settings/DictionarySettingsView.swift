@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct DictionaryView: View {
+struct DictionarySettingsView: View {
     @EnvironmentObject var dictionaryState: DictionaryState
     @State private var showingAddSheet = false
     @State private var editingEntry: DictionaryEntry? = nil
@@ -38,7 +38,7 @@ struct DictionaryView: View {
                 listView
             }
         }
-        .frame(minWidth: 500, minHeight: 400)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
         .searchable(text: $searchText, placement: .toolbar, prompt: "Search words...")
         .onChange(of: searchText) { _, newValue in

@@ -74,15 +74,6 @@ class StatusBarController {
         modelItem.submenu = modelMenu
         menu.addItem(modelItem)
 
-        // Manage Models option
-        let manageModelsItem = NSMenuItem(
-            title: "Manage Models...",
-            action: #selector(openManageModels),
-            keyEquivalent: ""
-        )
-        manageModelsItem.target = self
-        menu.addItem(manageModelsItem)
-
         // Hotkey submenu
         let hotkeyMenu = NSMenu()
         for option in HotkeyOption.allCases {
@@ -101,42 +92,25 @@ class StatusBarController {
         hotkeyItem.submenu = hotkeyMenu
         menu.addItem(hotkeyItem)
 
-        // Dictionary submenu
-        let dictionaryMenu = NSMenu()
-
-        // Quick Add
+        // Quick Add Word
         let quickAddItem = NSMenuItem(
             title: "Add Word...",
             action: #selector(showQuickAdd),
             keyEquivalent: ""
         )
         quickAddItem.target = self
-        dictionaryMenu.addItem(quickAddItem)
-
-        // Open Dictionary Window
-        let manageDictItem = NSMenuItem(
-            title: "Manage Dictionary...",
-            action: #selector(openDictionary),
-            keyEquivalent: ""
-        )
-        manageDictItem.target = self
-        dictionaryMenu.addItem(manageDictItem)
-
-        let dictionaryItem = NSMenuItem(title: "Dictionary", action: nil, keyEquivalent: "")
-        dictionaryItem.submenu = dictionaryMenu
-        menu.addItem(dictionaryItem)
+        menu.addItem(quickAddItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        // Launch at Login toggle
-        let launchAtLoginItem = NSMenuItem(
-            title: "Launch at Login",
-            action: #selector(toggleLaunchAtLogin(_:)),
-            keyEquivalent: ""
+        // Settings menu item
+        let settingsItem = NSMenuItem(
+            title: "Settings...",
+            action: #selector(openSettings),
+            keyEquivalent: ","
         )
-        launchAtLoginItem.target = self
-        launchAtLoginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(launchAtLoginItem)
+        settingsItem.target = self
+        menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Speak2", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -213,6 +187,14 @@ class StatusBarController {
 
     @objc private func openDictionary() {
         NotificationCenter.default.post(name: .openDictionaryWindow, object: nil)
+    }
+
+    @objc private func openHistory() {
+        NotificationCenter.default.post(name: .openHistoryWindow, object: nil)
+    }
+
+    @objc private func openSettings() {
+        NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
     }
 
     private func observeState() {
