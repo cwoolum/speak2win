@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let appState = AppState.shared
     private var cancellables = Set<AnyCancellable>()
     private var hasStartedDictation = false
+    private var permissionPollTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (menu bar only app)
@@ -145,13 +146,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] isModelLoaded, hasAccessibility, hasMicrophone in
                 guard let self = self else { return }
                 if isModelLoaded && hasAccessibility && hasMicrophone && !self.hasStartedDictation {
-                    self.hasStartedDictation = true
                     Task { @MainActor in
                         await self.startDictation()
                     }
                 }
             }
             .store(in: &cancellables)
+    }
+
+    /// Poll for permission changes so the app detects grants made via System Settings
+    private func startPermissionPolling() {
+        permissionPollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, !self.hasStartedDictation else {
+                    // Stop polling once dictation is running
+                    self?.permissionPollTimer?.invalidate()
+                    self?.permissionPollTimer = nil
+                    return
+                }
+
+                let hasAccessibility = HotkeyManager.checkAccessibilityPermission()
+                if hasAccessibility != self.appState.hasAccessibilityPermission {
+                    self.appState.hasAccessibilityPermission = hasAccessibility
+                }
+
+                let hasMic = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                if hasMic != self.appState.hasMicrophonePermission {
+                    self.appState.hasMicrophonePermission = hasMic
+                }
+            }
+        }
     }
 
     @MainActor
@@ -170,6 +194,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let hasDownloadedModel = !appState.downloadedModels.isEmpty
         if !appState.hasAccessibilityPermission || !appState.hasMicrophonePermission || !hasDownloadedModel {
             showSetupWindow()
+            startPermissionPolling()
             return
         }
 
@@ -179,10 +204,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func startDictation() async {
+        guard !hasStartedDictation else { return }
+        hasStartedDictation = true  // Prevent re-entrance from observer
+
         do {
             try await dictationController?.start()
-            hasStartedDictation = true
+            // Success - stop polling, dictation is running
+            permissionPollTimer?.invalidate()
+            permissionPollTimer = nil
         } catch {
+            hasStartedDictation = false  // Allow retry on next observer fire
             appState.lastError = error.localizedDescription
             showSetupWindow()
         }
