@@ -126,6 +126,15 @@ class StatusBarController {
         dictionaryItem.submenu = dictionaryMenu
         menu.addItem(dictionaryItem)
 
+        // History menu item
+        let historyItem = NSMenuItem(
+            title: "History...",
+            action: #selector(openHistory),
+            keyEquivalent: ""
+        )
+        historyItem.target = self
+        menu.addItem(historyItem)
+
         menu.addItem(NSMenuItem.separator())
 
         // Launch at Login toggle
@@ -213,6 +222,10 @@ class StatusBarController {
 
     @objc private func openDictionary() {
         NotificationCenter.default.post(name: .openDictionaryWindow, object: nil)
+    }
+
+    @objc private func openHistory() {
+        NotificationCenter.default.post(name: .openHistoryWindow, object: nil)
     }
 
     private func observeState() {

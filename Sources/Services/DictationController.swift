@@ -87,6 +87,17 @@ class DictationController {
                     text = dictionaryProcessor.process(text, using: entries, language: selectedLanguage)
                 }
 
+                // Add to transcription history
+                let historyEntry = TranscriptionHistoryEntry(
+                    text: TranscriptionHistoryStorage.truncateIfNeeded(text),
+                    modelUsed: appState.currentlyLoadedModel?.displayName ?? "Unknown",
+                    language: selectedLanguage,
+                    audioLength: nil
+                )
+                await MainActor.run {
+                    appState.historyState.add(historyEntry)
+                }
+
                 await MainActor.run {
                     if !text.isEmpty {
                         Task {

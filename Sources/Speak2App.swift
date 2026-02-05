@@ -18,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var setupWindowController: SetupWindowController?
     private var dictionaryWindowController: DictionaryWindowController?
+    private var historyWindowController: TranscriptionHistoryWindowController?
     private var quickAddWindow: NSWindow?
     private var addToDictionaryWindow: NSWindow?
     private var dictationController: DictationController?
@@ -64,6 +65,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Listen for requests to open history window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenHistoryWindow),
+            name: .openHistoryWindow,
+            object: nil
+        )
+
         // Observe setup completion to start dictation
         observeSetupCompletion()
 
@@ -88,6 +97,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowQuickAdd() {
         Task { @MainActor in
             showQuickAddWindow()
+        }
+    }
+
+    @objc private func handleOpenHistoryWindow() {
+        Task { @MainActor in
+            showHistoryWindow()
         }
     }
 
@@ -157,6 +172,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             dictionaryWindowController = DictionaryWindowController()
         }
         dictionaryWindowController?.showDictionaryWindow()
+    }
+
+    @MainActor
+    private func showHistoryWindow() {
+        if historyWindowController == nil {
+            historyWindowController = TranscriptionHistoryWindowController()
+        }
+        historyWindowController?.showHistoryWindow()
     }
 
     @MainActor
