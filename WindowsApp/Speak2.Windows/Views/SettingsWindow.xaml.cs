@@ -1,12 +1,16 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Speak2.Windows.Contracts;
 
 namespace Speak2.Windows.Views;
 
 public sealed partial class SettingsWindow : Window
 {
-    public SettingsWindow()
+    private readonly IWindowsHotkeyService _hotkeyService;
+
+    public SettingsWindow(IWindowsHotkeyService hotkeyService)
     {
+        _hotkeyService = hotkeyService;
         InitializeComponent();
         RootNavigation.SelectionChanged += RootNavigationOnSelectionChanged;
         RootNavigation.SelectedItem = RootNavigation.MenuItems[0];
@@ -39,7 +43,7 @@ public sealed partial class SettingsWindow : Window
             "models" => "Model management shell page.",
             "dictionary" => "Dictionary management shell page.",
             "history" => "Transcription history shell page.",
-            _ => "General settings shell page."
+            _ => BuildGeneralPageText()
         };
 
         ContentFrame.Content = new TextBlock
@@ -48,5 +52,15 @@ public sealed partial class SettingsWindow : Window
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(24)
         };
+    }
+
+    private string BuildGeneralPageText()
+    {
+        var descriptor = _hotkeyService.GetBindingDescriptor(_hotkeyService.CurrentOption);
+        var warningText = string.IsNullOrWhiteSpace(descriptor.WarningMessage)
+            ? "No compatibility warning for this key mapping on your current platform."
+            : $"Warning: {descriptor.WarningMessage}";
+
+        return $"General settings shell page.\n\nRequested hotkey: {descriptor.RequestedDisplayName}\nWindows mapping: {descriptor.EffectiveDisplayName}\n{warningText}";
     }
 }

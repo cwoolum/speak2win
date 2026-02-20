@@ -21,4 +21,19 @@ public sealed class AppPreferences : IAppPreferences
     {
         _settings.Values[key] = value;
     }
+
+    public string GetString(string key, string fallback = "")
+    {
+        if (_settings.Values.TryGetValue(key, out var value) && value is string parsed)
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    public void SetString(string key, string value)
+    {
+        _settings.Values[key] = value;
+    }
 }
