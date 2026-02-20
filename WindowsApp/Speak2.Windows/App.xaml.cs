@@ -17,11 +17,12 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
                 services.AddSingleton<AppEventBus>();
-                services.AddSingleton<IAppPreferences, AppPreferences>();
                 services.AddSingleton<ITrayMenuService, TrayMenuService>();
                 services.AddSingleton<ISettingsNavigationService, SettingsNavigationService>();
                 services.AddSingleton<ICapabilityService, CapabilityService>();
@@ -33,6 +34,14 @@ public partial class App : Application
 
         _shellWindow = new ShellWindow();
         _shellWindow.Activate();
+        _shellWindow.Closed += async (_, _) =>
+        {
+            if (_host != null)
+            {
+                await _host.StopAsync();
+                _host.Dispose();
+            }
+        };
 
         if (_shellWindow.Content is FrameworkElement root)
         {
@@ -41,6 +50,5 @@ public partial class App : Application
 
         var startup = _host.Services.GetRequiredService<StartupOrchestrator>();
         await startup.StartAsync();
-        _shellWindow.EnterBackgroundMode();
     }
 }
