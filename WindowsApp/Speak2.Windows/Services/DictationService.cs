@@ -4,15 +4,22 @@ namespace Speak2.Windows.Services;
 
 public sealed class DictationService : IDictationService
 {
+    private readonly IAppPreferences _preferences;
+
+    public DictationService(IAppPreferences preferences)
+    {
+        _preferences = preferences;
+    }
+
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        // Stub where HotkeyManagerWindows + engine startup is wired.
-        ApplicationDataStorage.SetBool("dictation-running", true);
+        // Stub where HotkeyManagerWindows + transcription engine startup is wired.
+        _preferences.SetBool("dictation-running", true);
         return Task.CompletedTask;
     }
 
     public void Stop()
     {
-        ApplicationDataStorage.SetBool("dictation-running", false);
+        _preferences.SetBool("dictation-running", false);
     }
 }

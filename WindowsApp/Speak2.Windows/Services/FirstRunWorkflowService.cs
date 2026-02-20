@@ -27,16 +27,16 @@ public sealed class FirstRunWorkflowService : IFirstRunWorkflowService
 
         if (!snapshot.HasMicrophoneAccess)
         {
-            _ = await _capabilityService.RequestMicrophonePromptAsync();
+            await _capabilityService.RequestMicrophonePromptAsync();
         }
 
         if (!snapshot.HasInputAccess)
         {
             var granted = await _capabilityService.RequestInputControlPromptAsync();
-            ApplicationDataStorage.SetBool("input-access-granted", granted);
+            _capabilityService.SetInputAccessAcknowledged(granted);
         }
 
-        ApplicationDataStorage.SetBool("is-first-run", false);
+        _capabilityService.MarkFirstRunComplete();
         _eventBus.Publish(AppEvents.CapabilityStateChanged);
     }
 }

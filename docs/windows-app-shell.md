@@ -6,6 +6,7 @@ This shell maps the current `Speak2App.swift` + `AppDelegate` responsibilities t
 
 1. **Startup + background behavior**
    - `StartupOrchestrator.StartAsync` replaces `applicationDidFinishLaunching`.
+   - `ShellWindow` is bootstrapped only to establish XAML root/context, then moved into background mode (hidden from switchers and hidden from desktop UI).
    - `TrayMenuService` provides status-area app behavior (tray icon + context menu) to mirror the macOS status bar flow.
    - `StartupOrchestrator.Stop()` is the symmetric shutdown entrypoint for dictation teardown.
 
@@ -16,6 +17,7 @@ This shell maps the current `Speak2App.swift` + `AppDelegate` responsibilities t
 3. **First-run setup workflow**
    - `FirstRunWorkflowService` runs only on first launch and opens setup.
    - It requests microphone access prompt and the input-control onboarding prompt.
+   - First-run and input acknowledgement state are persisted in local app settings (`IAppPreferences`).
    - The workflow publishes `CapabilityStateChanged` to trigger startup re-evaluation.
 
 4. **NotificationCenter replacement**
@@ -37,5 +39,7 @@ This shell maps the current `Speak2App.swift` + `AppDelegate` responsibilities t
 - `Package.appxmanifest` declares:
   - `DeviceCapability Name="microphone"`
   - `uap5:Capability Name="inputInjectionBrokered"`
-- `CapabilityService` checks microphone access via `AppCapability` (fallback to `DeviceAccessInformation`).
-- Input-control permission is represented with an explicit first-run prompt + persisted gate state so dictation cannot start until acknowledged/granted.
+- `CapabilityService` checks:
+  - microphone via `AppCapability("microphone")` with fallback to `DeviceAccessInformation`
+  - input controls via `AppCapability("inputInjectionBrokered")` with fallback to persisted onboarding acknowledgement
+- `RequestInputControlPromptAsync` opens Windows privacy settings and requires explicit user acknowledgement before dictation startup is allowed.

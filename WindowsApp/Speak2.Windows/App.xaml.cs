@@ -21,6 +21,7 @@ public partial class App : Application
             .ConfigureServices(services =>
             {
                 services.AddSingleton<AppEventBus>();
+                services.AddSingleton<IAppPreferences, AppPreferences>();
                 services.AddSingleton<ITrayMenuService, TrayMenuService>();
                 services.AddSingleton<ISettingsNavigationService, SettingsNavigationService>();
                 services.AddSingleton<ICapabilityService, CapabilityService>();
@@ -40,5 +41,6 @@ public partial class App : Application
 
         var startup = _host.Services.GetRequiredService<StartupOrchestrator>();
         await startup.StartAsync();
+        _shellWindow.EnterBackgroundMode();
     }
 }

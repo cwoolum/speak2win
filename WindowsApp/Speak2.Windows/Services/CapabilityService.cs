@@ -1,6 +1,7 @@
 using Windows.Devices.Enumeration;
 using Windows.Media.Capture;
 using Windows.Security.Authorization.AppCapabilityAccess;
+using Windows.System;
 using Microsoft.UI.Xaml.Controls;
 using Speak2.Windows.Contracts;
 using Speak2.Windows.Models;
@@ -9,14 +10,23 @@ namespace Speak2.Windows.Services;
 
 public sealed class CapabilityService : ICapabilityService
 {
+    private readonly IAppPreferences _preferences;
+
     private const string FirstRunKey = "is-first-run";
+    private const string HasDownloadedModelKey = "has-downloaded-model";
+    private const string InputAccessGrantedKey = "input-access-granted";
+
+    public CapabilityService(IAppPreferences preferences)
+    {
+        _preferences = preferences;
+    }
 
     public async Task<CapabilitySnapshot> EvaluateAsync(CancellationToken cancellationToken = default)
     {
         var hasMicrophone = await CheckMicrophoneAccessAsync();
-        var hasInput = CheckInputControlAccess();
-        var hasModel = ApplicationDataStorage.HasDownloadedModel();
-        var isFirstRun = ApplicationDataStorage.GetBool(FirstRunKey, true);
+        var hasInput = await CheckInputControlAccessAsync();
+        var hasModel = _preferences.GetBool(HasDownloadedModelKey);
+        var isFirstRun = _preferences.GetBool(FirstRunKey, true);
 
         return new CapabilitySnapshot(hasMicrophone, hasInput, hasModel, isFirstRun);
     }
@@ -30,7 +40,8 @@ public sealed class CapabilityService : ICapabilityService
             {
                 StreamingCaptureMode = StreamingCaptureMode.Audio
             });
-            return true;
+
+            return await CheckMicrophoneAccessAsync();
         }
         catch
         {
@@ -40,23 +51,47 @@ public sealed class CapabilityService : ICapabilityService
 
     public async Task<bool> RequestInputControlPromptAsync()
     {
+        if (App.MainXamlRoot is null)
+        {
+            // If the UI root isn't available yet, we cannot show ContentDialog.
+            return await CheckInputControlAccessAsync();
+        }
+
         var dialog = new ContentDialog
         {
             Title = "Enable keyboard/input access",
-            Content = "Speak2 needs keyboard and input control access for global push-to-talk and text injection. Open the Windows Settings instructions now?",
-            PrimaryButtonText = "Open instructions",
+            Content = "Speak2 needs keyboard/input control access for global push-to-talk and text insertion. Open Windows Settings and mark this step complete once enabled.",
+            PrimaryButtonText = "Open settings",
+            SecondaryButtonText = "I've enabled it",
             CloseButtonText = "Not now",
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = App.MainXamlRoot
         };
 
         var result = await dialog.ShowAsync();
+
         if (result == ContentDialogResult.Primary)
         {
-            _ = Launcher.OpenUriAsync(new Uri("ms-settings:privacy"));
+            await Launcher.LaunchUriAsync(new Uri("ms-settings:privacy"));
+            return false;
         }
 
-        return CheckInputControlAccess();
+        if (result == ContentDialogResult.Secondary)
+        {
+            _preferences.SetBool(InputAccessGrantedKey, true);
+        }
+
+        return await CheckInputControlAccessAsync();
+    }
+
+    public void MarkFirstRunComplete()
+    {
+        _preferences.SetBool(FirstRunKey, false);
+    }
+
+    public void SetInputAccessAcknowledged(bool value)
+    {
+        _preferences.SetBool(InputAccessGrantedKey, value);
     }
 
     private static async Task<bool> CheckMicrophoneAccessAsync()
@@ -74,30 +109,18 @@ public sealed class CapabilityService : ICapabilityService
         }
     }
 
-    private static bool CheckInputControlAccess()
+    private async Task<bool> CheckInputControlAccessAsync()
     {
-        // Placeholder capability gate for global hotkeys/text injection.
-        // Equivalent to macOS accessibility permission checks in AppDelegate.
-        return ApplicationDataStorage.GetBool("input-access-granted", false);
+        try
+        {
+            var capability = AppCapability.Create("inputInjectionBrokered");
+            var status = await capability.CheckAccessAsync();
+            return status == AppCapabilityAccessStatus.Allowed || _preferences.GetBool(InputAccessGrantedKey);
+        }
+        catch
+        {
+            // Fallback to explicit onboarding acknowledgement.
+            return _preferences.GetBool(InputAccessGrantedKey);
+        }
     }
-}
-
-internal static class ApplicationDataStorage
-{
-    private static readonly Dictionary<string, object> Data = new();
-
-    public static bool GetBool(string key, bool fallback)
-        => Data.TryGetValue(key, out var value) && value is bool parsed ? parsed : fallback;
-
-    public static void SetBool(string key, bool value)
-        => Data[key] = value;
-
-    public static bool HasDownloadedModel()
-        => GetBool("has-downloaded-model", false);
-}
-
-internal static class Launcher
-{
-    public static Task OpenUriAsync(Uri uri)
-        => Windows.System.Launcher.LaunchUriAsync(uri).AsTask();
 }
