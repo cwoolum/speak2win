@@ -17,16 +17,16 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-    protected override async void OnLaunched(LaunchActivatedEventArgs args)
-    {
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
+                services.AddSingleton<IAppPreferences, AppPreferences>();
                 services.AddSingleton<AppEventBus>();
                 services.AddSingleton<ITrayMenuService, TrayMenuService>();
                 services.AddSingleton<ISettingsNavigationService, SettingsNavigationService>();
                 services.AddSingleton<ICapabilityService, CapabilityService>();
                 services.AddSingleton<IFirstRunWorkflowService, FirstRunWorkflowService>();
+                services.AddSingleton<IWindowsHotkeyService, WindowsHotkeyService>();
                 services.AddSingleton<IDictationService, DictationService>();
                 services.AddSingleton<StartupOrchestrator>();
             })
