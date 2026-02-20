@@ -27,7 +27,12 @@ public sealed class FirstRunWorkflowService : IFirstRunWorkflowService
 
         if (!snapshot.HasMicrophoneAccess)
         {
-            await _capabilityService.RequestMicrophonePromptAsync();
+            var granted = await _capabilityService.RequestMicrophonePromptAsync();
+            if (!granted)
+            {
+                // Permission denied - cannot proceed with dictation
+                return;
+            }
         }
 
         if (!snapshot.HasInputAccess)
