@@ -25,6 +25,13 @@ By default, models are stored in `~/Library/Application Support/Speak2/Models/`.
 
 When changing the storage location, you'll be prompted to either move existing models to the new location or start fresh.
 
+
+## Windows app shell (WinUI 3)
+
+A Windows packaged app shell now exists under `WindowsApp/Speak2.Windows/` to mirror the macOS menu bar lifecycle with a tray/menu flow.
+
+See `docs/windows-app-shell.md` for lifecycle mapping details (startup services, settings navigation, first-run workflow, event bus replacement, and capability-gated dictation startup).
+
 ## Requirements
 
 - macOS 14.0 or later
