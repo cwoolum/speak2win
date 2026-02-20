@@ -47,7 +47,20 @@ public sealed class StartupOrchestrator
         _eventBus.Subscribe(AppEvents.OpenSettingsWindow, _ => _settingsNavigationService.OpenSettings());
         _eventBus.Subscribe(AppEvents.OpenSettingsTab, tab => _settingsNavigationService.OpenSettings(tab as string));
         _eventBus.Subscribe(AppEvents.OpenSetupWindow, _ => _settingsNavigationService.OpenSettings("setup"));
-        _eventBus.Subscribe(AppEvents.CapabilityStateChanged, async _ => await EvaluateAndStartDictationAsync());
+        _eventBus.Subscribe(AppEvents.CapabilityStateChanged, _ => 
+        {
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    await EvaluateAndStartDictationAsync();
+                }
+                catch
+                {
+                    // Log error or handle appropriately
+                }
+            });
+        });
     }
 
     private async Task EvaluateAndStartDictationAsync(CancellationToken cancellationToken = default)
