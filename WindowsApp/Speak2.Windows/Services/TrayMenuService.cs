@@ -29,7 +29,7 @@ public sealed class TrayMenuService : ITrayMenuService, IDisposable
         contextMenu.Items.Add("Dictionary", null, (_, _) => _eventBus.Publish(AppEvents.OpenSettingsTab, "dictionary"));
         contextMenu.Items.Add("History", null, (_, _) => _eventBus.Publish(AppEvents.OpenSettingsTab, "history"));
         contextMenu.Items.Add("First-run Setup", null, (_, _) => _eventBus.Publish(AppEvents.OpenSetupWindow));
-        contextMenu.Items.Add("Exit", null, (_, _) => Environment.Exit(0));
+        contextMenu.Items.Add("Exit", null, (_, _) => Microsoft.UI.Xaml.Application.Current.Exit());
 
         _notifyIcon = new NotifyIcon
         {
